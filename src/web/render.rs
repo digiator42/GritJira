@@ -9,12 +9,12 @@ pub trait MaudRender {
 
 impl MaudRender for Markup {
     fn render(self, ctx: RequestContext, is_htmx: bool, title: &str) -> Response {
-        let is_htmx = ctx.headers
+        let is_inner_htmx = ctx.headers
             .get("HX-Request")
             .map(|v| v == "true")
             .unwrap_or(false);
 
-        if is_htmx {
+        if is_inner_htmx {
             // Return fragment directly for HTMX swaps
             Response::ok(self.into_string())
         } else {

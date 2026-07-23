@@ -28,6 +28,51 @@ pub fn shell(title: &str, content: Markup, is_htmx: bool) -> Response {
                 script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js" {}
                 script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/json-enc.js" {}
 
+                // --- SortableJS + HTMX Kanban Binding Script ---
+                script {
+                    (maud::PreEscaped(r#"
+                        document.addEventListener("DOMContentLoaded", function () {
+                            initKanbanSortables();
+                        });
+
+                        document.body.addEventListener("htmx:afterSettle", function () {
+                            initKanbanSortables();
+                        });
+
+                        function initKanbanSortables() {
+                            const columns = document.querySelectorAll('.sortable-column');
+
+                            columns.forEach((column) => {
+                                if (column.dataset.sortableInitialized) return;
+                                column.dataset.sortableInitialized = "true";
+
+                                Sortable.create(column, {
+                                    group: 'kanban-board',
+                                    animation: 150,
+                                    ghostClass: 'opacity-40',
+                                    dragClass: 'shadow-2xl',
+                                    
+                                    onEnd: function (evt) {
+                                        const itemEl = evt.item;
+                                        const targetColumn = evt.to;
+                                        
+                                        const issueId = itemEl.dataset.issueId;
+                                        const targetStepId = targetColumn.dataset.columnId;
+
+                                        if (!issueId || !targetStepId) return;
+
+                                        htmx.ajax('POST', `/admin/jira/issues/${issueId}/move`, {
+                                            values: { step_id: targetStepId },
+                                            target: itemEl,
+                                            swap: 'outerHTML'
+                                        });
+                                    }
+                                });
+                            });
+                        }
+                    "#))
+                }
+
                 style {
                     (maud::PreEscaped(r#"
                         /* Global HTMX Progress Indicator Bar */
