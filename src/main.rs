@@ -8,6 +8,8 @@ mod models;
 mod repositories;
 mod services;
 mod web;
+mod events;
+mod jobs;
 
 #[tokio::main]
 async fn main() {
