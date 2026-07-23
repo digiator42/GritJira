@@ -1,7 +1,6 @@
 use crate::models::{issue, workflow};
 use crate::repositories::issue::IssueRepository;
 use crate::repositories::workflow::WorkflowRepository;
-use crate::services::permission_matrix::PermissionMatrix;
 use crate::services::workflow_engine::WorkflowEngine;
 use gritshield::GritComponent;
 use sea_orm::DbErr;

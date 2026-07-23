@@ -1,3 +1,4 @@
+use gritshield::core::AutoWire;
 use gritshield::database::{DbConfig, DbManager};
 use gritshield::middleware::AuthMiddleware;
 use gritshield::{declare_security_caps, inject, prelude::*};
@@ -6,6 +7,7 @@ use security::caps::*;
 
 mod controllers;
 mod database;
+mod dtos;
 mod events;
 mod jobs;
 mod models;
@@ -24,6 +26,7 @@ declare_security_caps! {
 // db must be DatabaseConnection not
 fn auto_wire(db: DatabaseConnection) {
     inject!(DatabaseConnection, db);
+    AutoWire::boot_di_container();
 }
 
 #[tokio::main]
@@ -38,12 +41,8 @@ async fn main() {
 
     let router = Router::new()
         .add_middleware(AuthMiddleware::new_session(
-            vec![
-                "/auth/login".to_string(),
-                "/api/**".to_string(),
-                "/admin/**".to_string(),
-            ],
-            Some("/api/info/sea-orm"),
+            vec!["/static/**".to_string(), "/auth/**".to_string()],
+            Some("/auth/login"),
         ))
         .mount_db(shared_db.clone());
 

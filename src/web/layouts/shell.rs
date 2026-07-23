@@ -26,6 +26,7 @@ pub fn shell(title: &str, content: Markup, is_htmx: bool) -> Response {
                 script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/viz.js" {}
                 script src="https://cdnjs.cloudflare.com/ajax/libs/viz.js/2.1.2/full.render.js" {}
                 script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js" {}
+                script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/json-enc.js" {}
 
                 style {
                     (maud::PreEscaped(r#"
