@@ -1,15 +1,30 @@
 use gritshield::database::{DbConfig, DbManager};
 use gritshield::middleware::AuthMiddleware;
-use gritshield::prelude::*;
+use gritshield::{declare_security_caps, inject, prelude::*};
+use sea_orm::DatabaseConnection;
+use security::caps::*;
 
 mod controllers;
 mod database;
-mod models;
-mod repositories;
-mod services;
-mod web;
 mod events;
 mod jobs;
+mod models;
+mod repositories;
+mod security;
+mod services;
+mod web;
+
+declare_security_caps! {
+    IssueEdit    => [Admin, Manager, Developer],
+    IssueCreate  => [Admin, Manager, Developer, Tester],
+    IssueDelete  => [Admin, Manager],
+    ProjectAdmin => [Admin],
+    ViewBoard    => [Admin, Manager, Developer, Tester, Viewer],
+}
+// db must be DatabaseConnection not
+fn auto_wire(db: DatabaseConnection) {
+    inject!(DatabaseConnection, db);
+}
 
 #[tokio::main]
 async fn main() {
@@ -17,8 +32,9 @@ async fn main() {
     let db_config = DbConfig::default();
 
     // Fire connection pool parameters and run pending dynamic migrations automatically!
-    let db_connection = DbManager::connect(db_config).await.unwrap();
-    let shared_db = db_connection;
+    let shared_db: Arc<DatabaseConnection> = DbManager::connect(db_config).await.unwrap();
+
+    auto_wire((*shared_db).clone());
 
     let router = Router::new()
         .add_middleware(AuthMiddleware::new_session(

@@ -2,22 +2,18 @@ use crate::models::{WorkflowStepModel, workflow};
 use gritshield::GritAdmin;
 use gritshield::database::GritRepository;
 use sea_orm::{DatabaseConnection, DbErr};
+use gritshield::GritComponent;
 
-#[derive(Clone, GritAdmin)]
+#[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
-    // searchable = ["id", "post_id", "created_at", "content", "user_id",],
-    // grid_columns = ["id", "post_id", "user_id", "content", "created_at"],
-    read_only = ["created_at"],
+    searchable = ["id", "project_id", "name", "position", "is_completed",],
+    read_only = ["is_completed"],
 )]
 pub struct WorkflowRepository {
     pub db: DatabaseConnection,
 }
 
 impl WorkflowRepository {
-    pub fn new(db: DatabaseConnection) -> Self {
-        Self { db }
-    }
-
     /// Fetch steps ordered by board position using GritShield QueryBuilder
     pub async fn find_steps_by_project(
         &self,

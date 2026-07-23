@@ -1,10 +1,11 @@
 use gritshield::GritAdmin;
 use gritshield::database::GritRepository;
 use sea_orm::{DatabaseConnection, DbErr};
-
+use gritshield::GritComponent;
+use std::sync::Arc;
 use crate::models::{IssueModel, issue};
 
-#[derive(Clone, GritAdmin)]
+#[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
     searchable = [ "project_id", "sprint_id", "step_id", "reporter_id", "assignee_id", "key", "summary", "description", "priority", "issue_type", "story_points", "created_at",],
      read_only = ["created_at"],
