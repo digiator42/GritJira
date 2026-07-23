@@ -1,0 +1,8 @@
+
+CREATE TABLE IF NOT EXISTS workflows (
+    id SERIAL PRIMARY KEY,
+    project_id INT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    is_completed BOOLEAN DEFAULT FALSE
+);

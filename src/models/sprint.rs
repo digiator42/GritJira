@@ -1,6 +1,7 @@
 use gritshield::{GritModel, GritRelation};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use chrono::NaiveDateTime;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, GritModel)]
 #[sea_orm(table_name = "sprints")]
@@ -11,8 +12,8 @@ pub struct Model {
     pub name: String,
     pub goal: Option<String>,
     pub status: String, // "future", "active", "completed"
-    pub start_date: Option<DateTimeUtc>,
-    pub end_date: Option<DateTimeUtc>,
+    pub start_date: Option<NaiveDateTime>,
+    pub end_date: Option<NaiveDateTime>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation, GritRelation)]

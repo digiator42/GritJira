@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS comments (
+    id SERIAL PRIMARY KEY,
+    issue_id INT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+    author_id INT NOT NULL REFERENCES users(id),
+    body TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);

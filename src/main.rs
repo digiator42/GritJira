@@ -3,8 +3,10 @@ use gritshield::middleware::AuthMiddleware;
 use gritshield::prelude::*;
 
 mod controllers;
-mod repositories;
+mod database;
 mod models;
+mod repositories;
+mod services;
 mod web;
 
 #[tokio::main]
@@ -25,10 +27,12 @@ async fn main() {
             ],
             Some("/api/info/sea-orm"),
         ))
-        .mount_db(shared_db)
-        .add_role_inheritance("Admin", vec!["Manager", "Operator", "Auditor"])
-        .add_role_inheritance("Manager", vec!["Editor", "Viewer"])
-        .add_role_inheritance("Editor", vec!["Contributor"]);
+        .mount_db(shared_db.clone());
+
+    // Seed test data on launch
+    if let Err(e) = database::seeder::seed_database(&shared_db).await {
+        eprintln!("[SEEDER ERROR] {}", e);
+    }
 
     ignite("127.0.0.1", "8080", router).await;
 }

@@ -104,28 +104,6 @@ pub fn shell(title: &str, content: Markup, is_htmx: bool) -> Response {
                                class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
                                 "📁 Projects"
                             }
-
-                            hr class="border-gray-800 my-3";
-
-                            div class="px-2 py-1 text-xxs uppercase tracking-wider font-semibold text-gray-500" { "System Graphs" }
-
-                            a href="/admin/di/topology"
-                               hx-get="/admin/di/topology"
-                               hx-target="#main-content"
-                               hx-indicator="body"
-                               hx-push-url="true"
-                               class="flex items-center gap-2.5 p-2 rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-white transition" {
-                                "📊 DI Topology"
-                            }
-
-                            a href="/admin/jobs/topology"
-                               hx-get="/admin/jobs/topology"
-                               hx-target="#main-content"
-                               hx-indicator="body"
-                               hx-push-url="true"
-                               class="flex items-center gap-2.5 p-2 rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-white transition" {
-                                "⚡ Event / Job Bus"
-                            }
                         }
 
                         // Footer Action

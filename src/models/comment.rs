@@ -1,6 +1,7 @@
 use gritshield::{GritModel, GritRelation};
 use gritshield::deps::sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use chrono::NaiveDateTime;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, GritModel)]
 #[sea_orm(table_name = "comments")]
@@ -10,7 +11,7 @@ pub struct Model {
     pub issue_id: i32,
     pub author_id: i32,
     pub body: String,
-    pub created_at: DateTimeUtc,
+    pub created_at: NaiveDateTime,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation, GritRelation)]
