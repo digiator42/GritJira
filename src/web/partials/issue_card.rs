@@ -6,7 +6,7 @@ pub fn issue_card(issue: &IssueModel) -> Markup {
         div id={(format!("issue-{}", issue.id))}
             class="bg-gray-900 border border-gray-800 p-3 rounded-lg shadow-sm hover:border-gray-700 cursor-grab active:cursor-grabbing transition"
             data-issue-id={(issue.id)}
-            hx-get={(format!("/admin/issues/{}/detail-modal", issue.id))}
+            hx-get={(format!("/issues/{}/detail-modal", issue.id))}
             hx-target="#modals-container"
             hx-swap="innerHTML" {
 

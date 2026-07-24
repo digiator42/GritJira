@@ -1,12 +1,12 @@
-use gritshield::prelude::*;
 use gritshield::GritSanitizer;
+use gritshield::prelude::*;
 use gritshield::security::errors::ShieldError;
 use sea_orm::DbErr;
 use serde::Deserialize;
 
 use crate::repositories::user::UserRepository;
-use crate::web::views::auth_view::{login_page_view, register_page_view};
 use crate::web::render::MaudRender;
+use crate::web::views::auth_view::{login_page_view, register_page_view};
 
 #[derive(Deserialize, GritSanitizer)]
 pub struct LoginPayload {
@@ -45,9 +45,9 @@ impl AuthController {
         let user = user_repo.find_one_by_email(&payload.email).await.unwrap();
 
         let user_id = user.unwrap().id;
- 
+
         // 2. Set Session Context
-        ctx.set_session_data("user_id", &format!("{}{}", "user_",  user_id));
+        ctx.set_session_data("user_id", &format!("{}{}", "user_", user_id));
 
         match user_id {
             1 => ctx.set_session_data("role", "Admin"),
@@ -56,8 +56,7 @@ impl AuthController {
         };
 
         // 3. HTMX Response: Redirect to board upon success
-        Response::ok("")
-            .with_header("HX-Redirect", "/admin/jira/board")
+        Response::ok("").with_header("HX-Redirect", "/jira/board")
     }
 
     // --- REGISTER ---
@@ -77,7 +76,6 @@ impl AuthController {
         ctx.set_session_data("user_id", "usr_102");
         ctx.set_session_data("role", "Developer");
 
-        Response::ok("")
-            .with_header("HX-Redirect", "/admin/jira/board")
+        Response::ok("").with_header("HX-Redirect", "/jira/board")
     }
 }

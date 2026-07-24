@@ -10,7 +10,7 @@ pub trait MaudRender {
 impl MaudRender for Markup {
     fn render(self, ctx: RequestContext, is_htmx: bool, title: &str) -> Response {
         let is_inner_htmx = ctx.headers
-            .get("HX-Request")
+            .get("Hx-Request")
             .map(|v| v == "true")
             .unwrap_or(false);
 
@@ -19,7 +19,7 @@ impl MaudRender for Markup {
             Response::ok(self.into_string())
         } else {
             // Wrap in admin_shell for full page reloads
-            shell(title, self, false)
+            shell(ctx, title, self, false)
         }
     }
 }

@@ -1,7 +1,3 @@
-use gritshield::GritJobExt;
-use gritshield::prelude::*;
-use std::sync::Arc;
-use std::time::Duration;
 use crate::events::IssueTransitioned;
 use crate::jobs::{ExportProjectArchiveJob, GenerateSprintBurndownJob};
 use crate::security::caps::{IssueEdit, ProjectAdmin, ViewBoard};
@@ -10,10 +6,14 @@ use crate::services::board_service::BoardService;
 use crate::web::partials::issue_card::issue_card;
 use crate::web::render::MaudRender;
 use crate::web::views::board_view::kanban_board_view;
+use gritshield::GritJobExt;
+use gritshield::prelude::*;
+use std::sync::Arc;
+use std::time::Duration;
 
 pub struct BoardController;
 
-#[controller("/admin/jira")]
+#[controller("/jira")]
 impl BoardController {
     #[get("/board")]
     #[cap(ViewBoard)] // Enforces that user has ViewBoard capability

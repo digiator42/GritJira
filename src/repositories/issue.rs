@@ -1,22 +1,53 @@
-use gritshield::GritAdmin;
 use gritshield::database::GritRepository;
-use sea_orm::{DatabaseConnection, DbErr};
-use gritshield::GritComponent;
-use std::sync::Arc;
+use gritshield::{GritAdmin, GritComponent};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, Set};
+
 use crate::models::{IssueModel, issue};
 
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
-    searchable = [ "project_id", "sprint_id", "step_id", "reporter_id", "assignee_id", "key", "summary", "description", "priority", "issue_type", "story_points", "created_at",],
-     read_only = ["created_at"],
+    searchable = [
+        "project_id",
+        "sprint_id",
+        "step_id",
+        "reporter_id",
+        "assignee_id",
+        "key",
+        "summary",
+        "description",
+        "priority",
+        "issue_type",
+        "story_points",
+        "created_at",
+    ],
+    read_only = ["created_at"]
 )]
 pub struct IssueRepository {
     pub db: DatabaseConnection,
 }
 
 impl IssueRepository {
-    pub fn new(db: DatabaseConnection) -> Self {
-        Self { db }
+    pub async fn create(
+        &self,
+        summary: &str,
+        description: &str,
+        issue_type: &str,
+        priority: i32,
+        reporter_id: i32,
+    ) -> Result<issue::Model, DbErr> {
+        let new_issue = issue::ActiveModel {
+            project_id: Set(1), // Default project_id (e.g. Project 1)
+            key: Set(format!("GRIT-{}", chrono::Utc::now().timestamp_millis())),
+            summary: Set(summary.to_string()),
+            description: Set(Some(description.to_string())),
+            issue_type: Set(issue_type.to_string()),
+            priority: Set(priority.to_string()), // priority is String in issue::Model
+            reporter_id: Set(reporter_id),
+            step_id: Set(1), // Default initial workflow step
+            ..Default::default()
+        };
+
+        new_issue.insert(&self.db).await
     }
 
     /// Fetch issues for a specific sprint using GritShield QueryBuilder
@@ -42,6 +73,24 @@ impl IssueRepository {
         target_step_id: i32,
     ) -> Result<issue::Model, DbErr> {
         self.update_column_value(issue_id, "step_id", target_step_id.to_string(), None)
+            .await
+    }
+    // Add inside impl IssueRepository:
+
+    pub async fn find_unassigned_backlog(&self) -> Result<Vec<issue::Model>, DbErr> {
+        self.query()
+            .where_null(issue::Column::SprintId)
+            .fetch()
+            .await
+    }
+
+    pub async fn update_sprint(
+        &self,
+        issue_id: i32,
+        sprint_id: Option<i32>,
+    ) -> Result<issue::Model, DbErr> {
+        let sprint_value = sprint_id.map(|id| id.to_string()).unwrap_or_default();
+        self.update_column_value(issue_id, "sprint_id", sprint_value, None)
             .await
     }
 }
