@@ -7,11 +7,13 @@ use crate::events::{CommentAdded, IssueCreated};
 use crate::models::{comment, issue};
 use crate::repositories::comment::CommentRepository;
 use crate::repositories::issue::IssueRepository;
+use crate::repositories::sprint::SprintRepository;
 
 #[derive(Clone, GritComponent)]
 pub struct IssueService {
     pub issue_repo: Arc<IssueRepository>,
     pub comment_repo: Arc<CommentRepository>,
+    pub sprint_repo: Arc<SprintRepository>,
 }
 
 impl IssueService {
@@ -19,21 +21,33 @@ impl IssueService {
     pub async fn create_issue(
         &self,
         payload: CreateIssuePayload,
+        project_id: i32,
         reporter_id: i32,
         ctx: &gritshield::routing::RequestContext,
     ) -> Result<issue::Model, DbErr> {
+        // Fetch current active sprint for this project on the server side
+        let active_sprint_id = self
+            .sprint_repo
+            .find_active_by_project(project_id)
+            .await
+            .ok()
+            .and_then(|sprints| sprints.into_iter().next().map(|s| s.id));
+
         let issue = self
             .issue_repo
             .create(
+                project_id,
                 &payload.summary,
                 &payload.description,
                 &payload.issue_type,
                 payload.priority,
                 reporter_id,
+                active_sprint_id, // Safely determined by backend logic!
             )
             .await?;
 
-        // Publish event asynchronously via EventBus
+        println!("[EVENT] Publishing IssueCreated for Key: {}", issue.key);
+
         ctx.event_bus.publish(IssueCreated {
             issue_id: issue.id,
             key: issue.key.clone(),

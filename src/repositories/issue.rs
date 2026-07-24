@@ -29,21 +29,24 @@ pub struct IssueRepository {
 impl IssueRepository {
     pub async fn create(
         &self,
+        project_id: i32,
         summary: &str,
         description: &str,
         issue_type: &str,
         priority: i32,
         reporter_id: i32,
+        sprint_id: Option<i32>,
     ) -> Result<issue::Model, DbErr> {
         let new_issue = issue::ActiveModel {
-            project_id: Set(1), // Default project_id (e.g. Project 1)
+            project_id: Set(project_id),
             key: Set(format!("GRIT-{}", chrono::Utc::now().timestamp_millis())),
             summary: Set(summary.to_string()),
             description: Set(Some(description.to_string())),
             issue_type: Set(issue_type.to_string()),
-            priority: Set(priority.to_string()), // priority is String in issue::Model
+            priority: Set(priority.to_string()),
             reporter_id: Set(reporter_id),
-            step_id: Set(1), // Default initial workflow step
+            sprint_id: Set(sprint_id),
+            step_id: Set(1), // Default to initial step ("To Do")
             ..Default::default()
         };
 

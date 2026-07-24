@@ -1,6 +1,6 @@
 use maud::{html, Markup};
 
-pub fn create_issue_modal() -> Markup {
+pub fn create_issue_modal(project_id: i32) -> Markup {
     html! {
         div id="create-issue-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" {
             div class="bg-gray-900 border border-gray-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl" {
@@ -9,12 +9,15 @@ pub fn create_issue_modal() -> Markup {
                     button onclick="document.getElementById('create-issue-modal').remove()" class="text-gray-400 hover:text-white" { "✕" }
                 }
 
-                form hx-post="/jira/issues/create"
+                form hx-post={(format!("/jira/issues/projects/{}/issues/create", project_id))}
                      hx-ext="json-enc"
                      hx-target="#main-content"
                      hx-swap="innerHTML"
                      class="space-y-4 font-mono text-xs" {
-                    
+
+                    // Optional: Hidden input if your DTO also deserializes project_id
+                    input type="hidden" name="project_id" value=(project_id);
+
                     div {
                         label class="block text-gray-400 mb-1" { "Summary" }
                         input type="text" name="summary" required class="w-full bg-gray-950 border border-gray-800 rounded px-3 py-2 text-white focus:outline-none focus:border-blue-500";
