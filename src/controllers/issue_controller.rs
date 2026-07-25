@@ -1,104 +1,138 @@
+use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
-use gritshield::routing::engine::ShieldResult;
+use serde::Serialize;
 use std::sync::Arc;
 
-use crate::dtos::{AddCommentPayload, CreateIssuePayload};
-use crate::security::caps::{IssueCreate, IssueEdit};
-use crate::services::board_service::BoardService;
+use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload};
+use crate::security::caps::{IssueCreate, IssueEdit, ViewBoard};
 use crate::services::issue_service::IssueService;
-use crate::web::partials::create_issue_modal::create_issue_modal;
-use crate::web::views::board_view::kanban_board_view;
+
+#[derive(Serialize)]
+pub struct ApiResponse<T> {
+    pub success: bool,
+    pub data: T,
+}
 
 pub struct IssueController;
 
-#[controller("/jira/issues")]
+#[controller("/api/v1/issues")]
 impl IssueController {
-    /// Renders the modal HTML partial into `#modals-container`
-    #[get("/new-modal")]
-    #[cap(IssueCreate)]
-    pub async fn get_create_modal(ctx: RequestContext) -> Response {
-        let project_id: i32 = ctx
-            .query
-            .get("project_id")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(1);
-        
-        Response::ok(create_issue_modal(project_id).into_string())
+    /// GET /api/v1/issues/:id - Fetch issue details
+    #[get("/:id")]
+    #[cap(ViewBoard)]
+    pub async fn get_issue(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        match issue_service.get_issue_by_id(issue_id).await {
+            Ok(Some(issue)) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: issue,
+                },
+            ),
+            Ok(None) => Response::not_found("Issue not found"),
+            Err(e) => Response::internal_error(e.to_string()),
+        }
     }
 
-    /// Handles issue creation with sanitization and re-renders the board view
-    #[post("/projects/:project_id/issues/create")]
+    /// POST /api/v1/issues/projects/:project_id - Create a new issue
+    #[post("/projects/:project_id")]
     #[cap(IssueCreate)]
-    pub async fn create_issue(
-        ctx: RequestContext,
-        issue_service: Arc<IssueService>,
-        board_service: Arc<BoardService>,
-    ) -> ShieldResult<Response> {
-        // 1. Extract project_id from URL params (defaults to project 1 if parsing fails or unmapped)
-        let project_id: i32 = ctx
-            .params
-            .get("project_id")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(1);
+    pub async fn create_issue(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+        let project_id: i32 = match ctx.params.get("project_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
 
-        let payload = ctx.json::<CreateIssuePayload>().await?;
+        let payload = match ctx.json::<CreateIssuePayload>().await {
+            Ok(p) => p,
+            Err(e) => return Response::bad_request(format!("Invalid request body: {:?}", e)),
+        };
 
         let reporter_id = ctx
             .get_session_data("user_id")
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
-        // 2. Pass project_id directly into IssueService
-        if let Err(err) = issue_service
+        match issue_service
             .create_issue(payload, project_id, reporter_id, &ctx)
             .await
         {
-            eprintln!("[ERROR] Failed to create issue in DB: {:?}", err);
-            return Ok(Response::bad_request(format!("Database error: {}", err)));
+            Ok(created) => Response::json(
+                HttpStatus::Created,
+                &ApiResponse {
+                    success: true,
+                    data: created,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Failed to create issue: {}", e)),
         }
-
-        // 3. Fetch current active sprint for the project dynamically
-        let active_sprint_id = board_service
-            .get_active_sprints(project_id)
-            .await
-            .ok()
-            .and_then(|sprints| sprints.into_iter().next().map(|s| s.id))
-            .unwrap_or(1);
-
-        // 4. Fetch fresh board data for this specific project and sprint
-        let board_data = board_service
-            .get_sprint_board_data(project_id, active_sprint_id)
-            .await
-            .unwrap_or_default();
-
-        let markup = kanban_board_view(&board_data);
-
-        Ok(Response::ok(markup.into_string()))
     }
 
+    /// PATCH /api/v1/issues/:id/step - Move issue step (Kanban workflow transition)
+    #[patch("/:id/step")]
+    #[cap(IssueEdit)]
+    pub async fn move_step(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        let payload = match ctx.json::<MoveIssuePayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid target step payload"),
+        };
+
+        match issue_service
+            .move_issue_step(issue_id, payload.target_step_id, 3, &ctx)
+            .await
+        {
+            Ok(updated) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: updated,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Failed to move issue: {}", e)),
+        }
+    }
+
+    /// POST /api/v1/issues/:id/comments - Add comment to issue
     #[post("/:id/comments")]
     #[cap(IssueEdit)]
-    pub async fn add_comment(
-        ctx: RequestContext,
-        issue_service: Arc<IssueService>,
-    ) -> ShieldResult<Response> {
-        let issue_id: i32 = ctx
-            .params
-            .get("id")
-            .and_then(|p| p.parse().ok())
-            .unwrap_or(0);
-        let payload = ctx.json::<AddCommentPayload>().await?;
+    pub async fn add_comment(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        let payload = match ctx.json::<AddCommentPayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid comment body"),
+        };
 
         let author_id = ctx
             .get_session_data("user_id")
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
-        issue_service
+        match issue_service
             .add_comment(issue_id, payload, author_id, &ctx)
             .await
-            .ok();
-
-        Ok(Response::ok("Comment added successfully"))
+        {
+            Ok(comment) => Response::json(
+                HttpStatus::Created,
+                &ApiResponse {
+                    success: true,
+                    data: comment,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Failed to add comment: {}", e)),
+        }
     }
 }

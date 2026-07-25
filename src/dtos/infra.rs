@@ -35,16 +35,30 @@ pub struct CreateIssuePayload {
     
     #[serde(deserialize_with = "de_int_from_str")]
     pub priority: i32,
+    pub sprint_id: Option<i32>,
+    pub story_points: Option<i32>,
 }
 
-// ============================================================
-// 2. Comment Payload (Handles nested structs cleanly)
-// ============================================================
 #[derive(Deserialize, GritSanitizer)]
 pub struct AddCommentPayload {
     #[clean(trim, html_escape)]
     pub body: String,
 }
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct CreateSprintPayload {
+    #[clean(trim, html_escape)]
+    pub name: String,
+    
+    #[clean(trim, html_escape)]
+    pub goal: Option<String>,
+}
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct MoveIssuePayload {
+    pub target_step_id: i32,
+}
+
 
 // ============================================================
 // 3. Issue Update Payload

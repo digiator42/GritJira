@@ -53,6 +53,17 @@ impl IssueRepository {
         new_issue.insert(&self.db).await
     }
 
+    /// Update assignee for an issue
+    pub async fn update_assignee(
+        &self,
+        issue_id: i32,
+        assignee_id: Option<i32>,
+    ) -> Result<issue::Model, DbErr> {
+        let assignee_val = assignee_id.map(|id| id.to_string()).unwrap_or_default();
+        self.update_column_value(issue_id, "assignee_id", assignee_val, None)
+            .await
+    }
+
     /// Fetch issues for a specific sprint using GritShield QueryBuilder
     pub async fn find_by_sprint(&self, sprint_id: i32) -> Result<Vec<IssueModel>, DbErr> {
         self.query()

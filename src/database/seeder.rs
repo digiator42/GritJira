@@ -18,6 +18,7 @@ pub async fn seed_database(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr
         username: Set("admin".to_string()),
         email: Set("admin@gritjira.local".to_string()),
         password: Set("admin123".to_string()),
+        role: Set("Admin".to_string()),
         avatar_url: Set(Some(
             "https://api.dicebear.com/7.x/avataaars/svg?seed=admin".to_string(),
         )),
@@ -31,6 +32,7 @@ pub async fn seed_database(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr
         username: Set("alex_dev".to_string()),
         email: Set("alex@gritjira.local".to_string()),
         password: Set("alex123".to_string()),
+        role: Set("Developer".to_string()),
         avatar_url: Set(Some(
             "https://api.dicebear.com/7.x/avataaars/svg?seed=alex".to_string(),
         )),

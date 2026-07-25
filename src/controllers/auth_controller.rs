@@ -1,12 +1,10 @@
+use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 use gritshield::GritSanitizer;
+use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
-use gritshield::security::errors::ShieldError;
-use sea_orm::DbErr;
-use serde::Deserialize;
 
 use crate::repositories::user::UserRepository;
-use crate::web::render::MaudRender;
-use crate::web::views::auth_view::{login_page_view, register_page_view};
 
 #[derive(Deserialize, GritSanitizer)]
 pub struct LoginPayload {
@@ -24,45 +22,47 @@ pub struct RegisterPayload {
     pub password: String,
 }
 
+#[derive(Serialize)]
+pub struct AuthResponse {
+    pub success: bool,
+    pub message: String,
+    pub user_id: Option<i32>,
+    pub role: Option<String>,
+}
+
 pub struct AuthController;
 
-#[controller("/auth")]
+#[controller("/api/v1/auth")]
 impl AuthController {
-    // --- LOGIN ---
-    #[get("/login")]
-    pub async fn login_page(ctx: RequestContext) -> Response {
-        login_page_view().render(ctx, true, "Login - GritJira")
-    }
-
     #[post("/login")]
     pub async fn handle_login(ctx: RequestContext, user_repo: Arc<UserRepository>) -> Response {
         let payload = match ctx.json::<LoginPayload>().await {
             Ok(p) => p,
-            Err(e) => return Response::bad_request(format!("{:?}", e)),
+            Err(e) => return Response::bad_request(format!("Invalid request body: {:?}", e)),
         };
 
-        // 1. Authenticate user against DB (pseudocode)
-        let user = user_repo.find_one_by_email(&payload.email).await.unwrap();
-
-        let user_id = user.unwrap().id;
-
-        // 2. Set Session Context
-        ctx.set_session_data("user_id", &format!("{}{}", "user_", user_id));
-
-        match user_id {
-            1 => ctx.set_session_data("role", "Admin"),
-            3 => ctx.set_session_data("role", "Developer"),
-            _ => ctx.set_session_data("role", "User"),
+        // Authenticate user against DB
+        let user = match user_repo.find_one_by_email(&payload.email).await {
+            Ok(Some(u)) => u,
+            Ok(None) => return Response::unauthorized("Invalid credentials"),
+            Err(_) => return Response::internal_error("Database error"),
         };
 
-        // 3. HTMX Response: Redirect to board upon success
-        Response::ok("").with_header("HX-Redirect", "/jira/board")
-    }
+        let user_id = user.id;
 
-    // --- REGISTER ---
-    #[get("/register")]
-    pub async fn register_page(ctx: RequestContext) -> Response {
-        register_page_view().render(ctx, true, "Register - GritJira")
+        // Set session context
+        ctx.set_session_data("user_id", &user_id.to_string());
+        ctx.set_session_data("role", &user.role);
+
+        Response::json(
+            HttpStatus::Ok,
+            &AuthResponse {
+                success: true,
+                message: "Login successful".into(),
+                user_id: Some(user_id),
+                role: Some(user.role.clone()),
+            },
+        )
     }
 
     #[post("/register")]
@@ -72,10 +72,18 @@ impl AuthController {
             Err(_) => return Response::bad_request("Invalid registration data"),
         };
 
-        // Save user to DB & auto-login
-        ctx.set_session_data("user_id", "usr_102");
+        // TODO: Persist user to DB via UserRepository
+        ctx.set_session_data("user_id", "102");
         ctx.set_session_data("role", "Developer");
 
-        Response::ok("").with_header("HX-Redirect", "/jira/board")
+        Response::json(
+            HttpStatus::Created,
+            &AuthResponse {
+                success: true,
+                message: "Registration successful".into(),
+                user_id: Some(102),
+                role: Some("Developer".into()),
+            },
+        )
     }
 }

@@ -56,7 +56,8 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                 button
                     hx-get="/jira/issues/new-modal"
                     hx-target="#modals-container"
-                    hx-swap="innerHTML"
+                    // hx-swap="innerHTML"
+                    hx-swap="outerHTML"
                     class="w-full bg-blue-600 hover:bg-blue-500 text-white font-mono font-semibold text-xs py-2 px-3 rounded-lg transition duration-150 flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50" {
                     span { "+" }
                     span { "Create Issue" }

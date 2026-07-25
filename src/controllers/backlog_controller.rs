@@ -1,26 +1,52 @@
+use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
+use serde::Serialize;
 use std::sync::Arc;
 
+use crate::models::{IssueModel, SprintModel};
 use crate::security::caps::ViewBoard;
 use crate::services::board_service::BoardService;
-use crate::web::render::MaudRender;
-use crate::web::views::backlog_view::backlog_view;
+
+#[derive(Serialize)]
+pub struct BacklogResponse {
+    pub backlog_issues: Vec<IssueModel>,
+    pub sprints: Vec<SprintModel>,
+}
+
+#[derive(Serialize)]
+pub struct ApiResponse<T> {
+    pub success: bool,
+    pub data: T,
+}
 
 pub struct BacklogController;
 
-#[controller("/jira")]
+#[controller("/api/v1/backlog")]
 impl BacklogController {
-    #[get("/backlog")]
+    #[get("/projects/:project_id")]
     #[cap(ViewBoard)]
-    pub async fn view_backlog(ctx: RequestContext, board_service: Arc<BoardService>) -> Response {
+    pub async fn get_backlog(ctx: RequestContext, board_service: Arc<BoardService>) -> Response {
+        let project_id: i32 = match ctx.params.get("project_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid or missing project ID"),
+        };
+
         let backlog_issues = board_service.get_backlog_issues().await.unwrap_or_default();
         let sprints = board_service
-            .get_active_sprints(1)
+            .get_active_sprints(project_id)
             .await
             .unwrap_or_default();
 
-        let markup = backlog_view(&backlog_issues, &sprints);
-        markup.render(ctx, false, "Backlog - GritJira")
+        Response::json(
+            HttpStatus::Ok,
+            &ApiResponse {
+                success: true,
+                data: BacklogResponse {
+                    backlog_issues,
+                    sprints,
+                },
+            },
+        )
     }
 
     #[post("/issues/:id/assign-sprint")]
@@ -34,16 +60,24 @@ impl BacklogController {
             None => return Response::bad_request("Invalid issue ID"),
         };
 
-        // Fix: Use .as_str() on UntrustedString to compare with &str
-        let sprint_id: i32 = ctx
+        let sprint_id: i32 = match ctx
             .form
             .fields
             .get("sprint_id")
-            .and_then(|v| v.parse::<i32>().ok())
-            .unwrap();
+            .and_then(|v| v.parse().ok())
+        {
+            Some(id) => id,
+            None => return Response::bad_request("Missing or invalid sprint_id"),
+        };
 
         match board_service.assign_sprint(issue_id, sprint_id).await {
-            Ok(_) => Response::ok("Sprint updated"),
+            Ok(_) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: "Sprint assigned successfully",
+                },
+            ),
             Err(e) => Response::bad_request(format!("Assignment failed: {}", e)),
         }
     }
