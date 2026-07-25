@@ -152,10 +152,10 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                 "#))
             }
 
-            // Mustache template for search results (outside the script block)
+            // Mustache template for issues search results (outside the script block)
             script id="search-result-template" type="text/x-mustache-template" {
                 (maud::PreEscaped(r#"
-                    {{#issues}}
+                    {{#data}}
                     <div class="bg-gray-900 border border-gray-800 rounded-lg p-3 flex justify-between items-center hover:border-gray-700 transition">
                         <div>
                             <span class="text-blue-400 font-bold">{{key}}</span>
@@ -166,10 +166,10 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                             <span class="text-xxs text-gray-500">{{issue_type}}</span>
                         </div>
                     </div>
-                    {{/issues}}
-                    {{^issues}}
+                    {{/data}}
+                    {{^data}}
                     <p class="text-gray-500 italic mt-4">No issues found.</p>
-                    {{/issues}}
+                    {{/data}}
                 "#))
             }
 
@@ -190,6 +190,15 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                         }
                         body.htmx-request .htmx-indicator-bar,
                         .htmx-request.htmx-indicator-bar {
+                            display: block !important;
+                        }
+                        .htmx-request.htmx-indicator {
+                            display: block !important;
+                        }
+                        .htmx-indicator {
+                            display: none !important;
+                        }
+                        .htmx-request .htmx-indicator {
                             display: block !important;
                         }
                         @keyframes loading-bar-move {

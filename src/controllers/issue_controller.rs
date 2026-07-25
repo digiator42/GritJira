@@ -3,8 +3,8 @@ use crate::security::caps::{IssueCreate, IssueEdit, ViewBoard};
 use crate::services::JqlParser;
 use crate::services::issue_service::IssueService;
 use gritshield::http::response::HttpStatus;
-use gritshield::prelude::*;
-use serde::Serialize;
+use gritshield::{GritSanitizer, prelude::*};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 #[derive(Serialize)]
@@ -12,6 +12,13 @@ pub struct ApiResponse<T> {
     pub success: bool,
     pub data: T,
 }
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct AssignIssuePayload {
+    /// Pass `Some(id)` to assign, or `None` / `null` to unassign
+    pub assignee_id: Option<i32>,
+}
+
 pub struct IssueController;
 
 #[controller("/api/v1/issues")]
@@ -136,6 +143,7 @@ impl IssueController {
     }
 
     /// GET /api/v1/issues/search?jql=project_id = 1 AND priority = 1
+    // src/controllers/issue_controller.rs
     #[get("/search")]
     #[cap(ViewBoard)]
     pub async fn search_issues(
@@ -150,18 +158,34 @@ impl IssueController {
             .map(|v| v.to_string())
             .unwrap_or_else(|| "project_id = 1".to_string());
 
+        let is_htmx = ctx.req.has_header("hx-request");
+
         match issue_service
             .search_issues(&jql_query, &issue_service.issue_repo.db, &jql_parser)
             .await
         {
-            Ok(issues) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: issues,
-                },
-            ),
-            Err(err_msg) => Response::bad_request(format!("JQL execution failed: {}", err_msg)),
+            Ok(issues) => {
+                if is_htmx {
+                    // For HTMX requests, return just the issues array
+                    // The client-side-templates extension will render it
+                    Response::ok(serde_json::to_string(&issues).unwrap_or_default())
+                } else {
+                    Response::json(
+                        HttpStatus::Ok,
+                        &ApiResponse {
+                            success: true,
+                            data: issues,
+                        },
+                    )
+                }
+            }
+            Err(err_msg) => {
+                if is_htmx {
+                    Response::bad_request(format!("JQL execution failed: {}", err_msg))
+                } else {
+                    Response::bad_request(format!("JQL execution failed: {}", err_msg))
+                }
+            }
         }
     }
 

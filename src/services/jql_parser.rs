@@ -9,9 +9,6 @@ use sea_orm::{DbBackend, Statement};
 pub struct JqlParser {}
 
 impl JqlParser {
-    pub fn new() -> Self {
-        Self {}
-    }
 
     /// Compiles a JQL/SQL string into a SeaORM Statement
     pub fn compile_jql(

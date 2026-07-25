@@ -3,6 +3,7 @@ use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
 use std::sync::Arc;
 
+use crate::services::JqlParser;
 use crate::services::{board_service::BoardService, issue_service::IssueService};
 use crate::web::partials::create_issue_modal::create_issue_modal;
 use crate::web::partials::create_sprint_modal::create_sprint_modal;
@@ -67,11 +68,6 @@ impl WebController {
         projects_view(&[]).render(ctx, "Projects")
     }
 
-    #[get("/search")]
-    pub async fn search_page(ctx: RequestContext) -> Response {
-        search_page().render(ctx, "Search")
-    }
-
     #[get("/sprints/new-modal")]
     pub async fn new_sprint_modal(ctx: RequestContext) -> Response {
         let project_id = ctx
@@ -100,5 +96,47 @@ impl WebController {
             Ok(None) => Response::not_found("Issue not found"),
             Err(e) => Response::internal_error(e.to_string()),
         }
+    }
+
+    #[get("/search")]
+    pub async fn search_page(ctx: RequestContext) -> Response {
+        search_page().render(ctx, "Search Issues")
+    }
+
+    // Add a new endpoint that returns HTML
+    #[get("/search/results")]
+    pub async fn search_results(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+        jql_parser: Arc<JqlParser>,
+    ) -> Response {
+        let jql = ctx.query.get("jql").map(|v| v.to_string()).unwrap_or("".to_string());
+
+        let issues = issue_service
+            .search_issues(&jql, &issue_service.issue_repo.db, &jql_parser)
+            .await
+            .unwrap_or_default();
+
+        // Render HTML directly on the server
+        let markup = html! {
+            @if issues.is_empty() {
+                p class="text-gray-500 italic" { "No issues found." }
+            } @else {
+                @for issue in issues {
+                    div class="bg-gray-900 border border-gray-800 rounded-lg p-3 flex justify-between items-center hover:border-gray-700 transition" {
+                        div {
+                            span class="text-blue-400 font-bold" { (issue.key) }
+                            span class="text-gray-300 ml-2" { (issue.summary) }
+                        }
+                        div class="flex items-center gap-2" {
+                            span class="text-xxs bg-gray-800 text-gray-400 px-2 py-0.5 rounded" { (issue.priority) }
+                            span class="text-xxs text-gray-500" { (issue.issue_type) }
+                        }
+                    }
+                }
+            }
+        };
+
+        Response::ok(markup.into_string())
     }
 }
