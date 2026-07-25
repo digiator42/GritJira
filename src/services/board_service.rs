@@ -1,4 +1,4 @@
-use crate::models::{issue, sprint, workflow};
+use crate::models::{IssueModel, WorkflowStepModel, issue, sprint, workflow};
 use crate::repositories::issue::IssueRepository;
 use crate::repositories::sprint::SprintRepository;
 use crate::repositories::workflow::WorkflowRepository;
@@ -6,6 +6,11 @@ use crate::services::workflow_engine::WorkflowEngine;
 use gritshield::GritComponent;
 use sea_orm::DbErr;
 use std::sync::Arc;
+use sea_orm::ConnectionTrait;
+use sea_orm::ColumnTrait;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use sea_orm::QueryOrder;
 
 #[derive(Clone, GritComponent)]
 pub struct BoardService {
@@ -79,5 +84,37 @@ impl BoardService {
         sprint_id: i32,
     ) -> Result<issue::Model, DbErr> {
         self.issue_repo.update_step(issue_id, sprint_id).await
+    }
+
+    /// Returns workflow steps paired with their respective sprint issues
+    pub async fn get_kanban_columns(
+        &self,
+        sprint_id: i32,
+    ) -> Result<Vec<(WorkflowStepModel, Vec<IssueModel>)>, DbErr> {
+        // 1. Fetch all workflow steps ordered by position
+        let steps = workflow::Entity::find()
+            .order_by_asc(workflow::Column::Position)
+            .all(&self.issue_repo.db)
+            .await?;
+
+        // 2. Fetch all issues assigned to the active sprint
+        let sprint_issues = issue::Entity::find()
+            .filter(issue::Column::SprintId.eq(sprint_id))
+            .all(&self.issue_repo.db)
+            .await?;
+
+        // 3. Group issues by workflow step ID
+        let mut columns = Vec::new();
+        for step in steps {
+            let step_issues: Vec<IssueModel> = sprint_issues
+                .iter()
+                .filter(|i| i.step_id == step.id)
+                .cloned()
+                .collect();
+
+            columns.push((step, step_issues));
+        }
+
+        Ok(columns)
     }
 }

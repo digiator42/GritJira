@@ -44,9 +44,10 @@ async fn main() {
             vec![
                 "/static/**".to_string(),
                 "/api/v1/auth/**".to_string(),
+                "/jira/login".to_string(),
                 "/admin/**".to_string(),
             ],
-            Some("/auth/login"),
+            Some("/jira/login"),
         ))
         .mount_db(shared_db.clone());
 

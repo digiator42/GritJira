@@ -10,6 +10,7 @@ use crate::jobs::GenerateSprintBurndownJob;
 use crate::security::caps::{IssueEdit, ProjectAdmin, ViewBoard};
 use crate::services::JqlParser;
 use crate::services::board_service::BoardService;
+use crate::web::partials::issue_card::issue_card;
 
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
@@ -54,21 +55,38 @@ impl BoardController {
             None => return Response::bad_request("Invalid issue ID"),
         };
 
-        let target_step_id: i32 = match ctx.form.fields.get("step_id").and_then(|v| v.parse().ok())
-        {
+        let target_step_id: i32 = match ctx.form.fields.get("step_id").and_then(|v| v.parse().ok()) {
             Some(step) => step,
             None => return Response::bad_request("Missing target step_id"),
         };
 
+        let is_htmx = ctx.req.has_header("hx-request");
+
         match board_service.move_issue(issue_id, target_step_id).await {
-            Ok(updated_issue) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: updated_issue,
-                },
-            ),
-            Err(e) => Response::bad_request(format!("Move failed: {}", e)),
+            Ok(updated_issue) => {
+                if is_htmx {
+                    // Return the updated issue as an HTML card
+                    let card_markup = issue_card(&updated_issue);
+                    Response::ok(card_markup.into_string())
+                } else {
+                    Response::json(
+                        HttpStatus::Ok,
+                        &ApiResponse {
+                            success: true,
+                            data: updated_issue,
+                        },
+                    )
+                }
+            }
+            Err(e) => {
+                let error_msg = format!("Move failed: {}", e);
+                if is_htmx {
+                    // Return error as HTML for HTMX
+                    Response::bad_request(error_msg)
+                } else {
+                    Response::bad_request(error_msg)
+                }
+            }
         }
     }
 

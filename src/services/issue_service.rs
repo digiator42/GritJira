@@ -4,19 +4,32 @@ use gritshield::database::repository::JqlCompiler;
 use gritshield::routing::RequestContext;
 use sea_orm::DatabaseConnection;
 use sea_orm::DbErr;
+use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::dtos::{AddCommentPayload, CreateIssuePayload};
 use crate::events::{CommentAdded, IssueCreated, IssueTransitioned};
 use crate::jobs::SendIssueDigestJob;
 use crate::models::IssueModel;
+use crate::models::SprintModel;
 use crate::models::issue::GritRepositoryRecord;
-use sea_orm::ConnectionTrait;
+use crate::models::sprint;
 use crate::models::{comment, issue};
 use crate::repositories::comment::CommentRepository;
 use crate::repositories::issue::IssueRepository;
 use crate::repositories::sprint::SprintRepository;
 use crate::services::JqlParser;
+use sea_orm::ConnectionTrait;
+use sea_orm::ColumnTrait;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+use sea_orm::QueryOrder;
+
+#[derive(Deserialize)]
+pub struct AssignIssuePayload {
+    /// Pass `Some(id)` to assign, or `None` / `null` to unassign
+    pub assignee_id: Option<i32>,
+}
 
 #[derive(Clone, GritComponent)]
 pub struct IssueService {
@@ -69,6 +82,15 @@ impl IssueService {
         let _ = job.enqueue(&ctx.job_queue).await;
 
         Ok(issue)
+    }
+
+    /// Updates the assignee of an issue
+    pub async fn assign_issue(
+        &self,
+        issue_id: i32,
+        assignee_id: Option<i32>,
+    ) -> Result<issue::Model, DbErr> {
+        self.issue_repo.update_assignee(issue_id, assignee_id).await
     }
 
     pub async fn get_issue_by_id(&self, issue_id: i32) -> Result<Option<issue::Model>, DbErr> {
@@ -144,5 +166,24 @@ impl IssueService {
             .find_by_statement(stmt)
             .await
             .map_err(|e| format!("Database query error: {}", e))
+    }
+
+    /// Fetches all backlog issues for a project (where sprint_id is NULL)
+    pub async fn get_backlog_issues(&self, project_id: i32) -> Result<Vec<IssueModel>, DbErr> {
+        issue::Entity::find()
+            .filter(issue::Column::ProjectId.eq(project_id))
+            .filter(issue::Column::SprintId.is_null())
+            .order_by_desc(issue::Column::CreatedAt)
+            .all(&self.issue_repo.db)
+            .await
+    }
+
+    /// Fetches all active/planned sprints for a project
+    pub async fn get_project_sprints(&self, project_id: i32) -> Result<Vec<SprintModel>, DbErr> {
+        sprint::Entity::find()
+            .filter(sprint::Column::ProjectId.eq(project_id))
+            .order_by_desc(sprint::Column::StartDate)
+            .all(&self.issue_repo.db)
+            .await
     }
 }
