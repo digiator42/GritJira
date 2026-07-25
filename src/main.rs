@@ -41,7 +41,11 @@ async fn main() {
 
     let router = Router::new()
         .add_middleware(AuthMiddleware::new_session(
-            vec!["/static/**".to_string(), "/auth/**".to_string()],
+            vec![
+                "/static/**".to_string(),
+                "/api/v1/auth/**".to_string(),
+                "/admin/**".to_string(),
+            ],
             Some("/auth/login"),
         ))
         .mount_db(shared_db.clone());

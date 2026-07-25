@@ -1,6 +1,8 @@
 use gritshield::GritComponent;
 use gritshield::GritJobExt;
+use gritshield::database::repository::JqlCompiler;
 use gritshield::routing::RequestContext;
+use sea_orm::DatabaseConnection;
 use sea_orm::DbErr;
 use std::sync::Arc;
 
@@ -9,10 +11,12 @@ use crate::events::{CommentAdded, IssueCreated, IssueTransitioned};
 use crate::jobs::SendIssueDigestJob;
 use crate::models::IssueModel;
 use crate::models::issue::GritRepositoryRecord;
+use sea_orm::ConnectionTrait;
 use crate::models::{comment, issue};
 use crate::repositories::comment::CommentRepository;
 use crate::repositories::issue::IssueRepository;
 use crate::repositories::sprint::SprintRepository;
+use crate::services::JqlParser;
 
 #[derive(Clone, GritComponent)]
 pub struct IssueService {
@@ -120,5 +124,25 @@ impl IssueService {
         });
 
         Ok(comment)
+    }
+
+    /// Parses JQL and executes it directly against SeaORM
+    pub async fn search_issues(
+        &self,
+        raw_jql: &str,
+        db_conn: &DatabaseConnection,
+        jql_parser: &JqlParser,
+    ) -> Result<Vec<IssueModel>, String> {
+        // 1. Get database backend dialect (PostgreSQL, MySQL, SQLite)
+        let backend = db_conn.get_database_backend();
+
+        // 2. Compile JQL to SeaORM Statement
+        let stmt = jql_parser.compile_jql(raw_jql, "issues", backend)?;
+
+        // 3. Execute statement
+        self.issue_repo
+            .find_by_statement(stmt)
+            .await
+            .map_err(|e| format!("Database query error: {}", e))
     }
 }

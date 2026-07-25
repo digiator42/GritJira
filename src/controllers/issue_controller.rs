@@ -2,9 +2,9 @@ use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
 use serde::Serialize;
 use std::sync::Arc;
-
 use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload};
 use crate::security::caps::{IssueCreate, IssueEdit, ViewBoard};
+use crate::services::JqlParser;
 use crate::services::issue_service::IssueService;
 
 #[derive(Serialize)]
@@ -12,7 +12,6 @@ pub struct ApiResponse<T> {
     pub success: bool,
     pub data: T,
 }
-
 pub struct IssueController;
 
 #[controller("/api/v1/issues")]
@@ -133,6 +132,36 @@ impl IssueController {
                 },
             ),
             Err(e) => Response::bad_request(format!("Failed to add comment: {}", e)),
+        }
+    }
+
+    /// GET /api/v1/issues/search?jql=project_id = 1 AND priority = 1
+    #[get("/search")]
+    #[cap(ViewBoard)]
+    pub async fn search_issues(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+        jql_parser: Arc<JqlParser>,
+    ) -> Response {
+        let jql_query = ctx
+            .query
+            .get("jql")
+            .cloned()
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "project_id = 1".to_string());
+
+        match issue_service
+            .search_issues(&jql_query, &issue_service.issue_repo.db, &jql_parser)
+            .await
+        {
+            Ok(issues) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: issues,
+                },
+            ),
+            Err(err_msg) => Response::bad_request(format!("JQL execution failed: {}", err_msg)),
         }
     }
 }

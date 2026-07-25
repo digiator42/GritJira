@@ -1,7 +1,7 @@
 use gritshield::database::GritRepository;
 use gritshield::{GritAdmin, GritComponent};
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, Set};
-
+use sea_orm::FromQueryResult;
 use crate::models::{IssueModel, issue};
 
 #[derive(Clone, GritAdmin, GritComponent)]
@@ -61,6 +61,13 @@ impl IssueRepository {
     ) -> Result<issue::Model, DbErr> {
         let assignee_val = assignee_id.map(|id| id.to_string()).unwrap_or_default();
         self.update_column_value(issue_id, "assignee_id", assignee_val, None)
+            .await
+    }
+
+    /// Executes a compiled JQL SeaORM Statement directly against the DB
+    pub async fn find_by_statement(&self, stmt: sea_orm::Statement) -> Result<Vec<IssueModel>, DbErr> {
+        IssueModel::find_by_statement(stmt)
+            .all(&self.db)
             .await
     }
 

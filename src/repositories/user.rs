@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
-    searchable = ["username", "email", "avatar_url", "created_at",], 
+    searchable = ["username", "email", "role", "avatar_url", "created_at",], 
     read_only = ["created_at"],
 )]
 pub struct UserRepository {

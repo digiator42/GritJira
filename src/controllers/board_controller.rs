@@ -90,17 +90,4 @@ impl BoardController {
             },
         )
     }
-
-    #[get("/search")]
-    #[cap(ViewBoard)]
-    pub async fn search_issues(ctx: RequestContext, jql_parser: Arc<JqlParser>) -> Response {
-        let sql_filter = jql_parser.parse_query("project = GRIT AND assignee = alex_dev");
-        Response::json(
-            HttpStatus::Ok,
-            &ApiResponse {
-                success: true,
-                data: sql_filter,
-            },
-        )
-    }
 }
