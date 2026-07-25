@@ -1,16 +1,13 @@
-use crate::models::{IssueModel, WorkflowStepModel, issue, sprint, workflow};
+// src/services/board_service.rs
+use crate::models::{IssueModel, SprintModel, WorkflowStepModel, issue, sprint, workflow};
 use crate::repositories::issue::IssueRepository;
 use crate::repositories::sprint::SprintRepository;
 use crate::repositories::workflow::WorkflowRepository;
 use crate::services::workflow_engine::WorkflowEngine;
 use gritshield::GritComponent;
-use sea_orm::DbErr;
+use sea_orm::{DatabaseConnection, DbErr};
 use std::sync::Arc;
-use sea_orm::ConnectionTrait;
-use sea_orm::ColumnTrait;
-use sea_orm::EntityTrait;
-use sea_orm::QueryFilter;
-use sea_orm::QueryOrder;
+use gritshield::database::GritRepository;
 
 #[derive(Clone, GritComponent)]
 pub struct BoardService {
@@ -18,6 +15,7 @@ pub struct BoardService {
     pub workflow_repo: Arc<WorkflowRepository>,
     pub issue_repo: Arc<IssueRepository>,
     pub sprint_repo: Arc<SprintRepository>,
+    pub db: DatabaseConnection,
 }
 
 impl BoardService {
@@ -41,9 +39,24 @@ impl BoardService {
         project_id: i32,
         sprint_id: i32,
     ) -> Result<Vec<(workflow::Model, Vec<issue::Model>)>, DbErr> {
-        let steps = self.workflow_repo.find_steps_by_project(project_id).await?;
-        let sprint_issues = self.issue_repo.find_by_sprint(sprint_id).await?;
+        // Get workflow steps using query builder
+        let steps = self
+            .workflow_repo
+            .query()
+            .where_eq(workflow::Column::ProjectId, project_id)
+            .order_asc(workflow::Column::Position)
+            .fetch()
+            .await?;
 
+        // Get sprint issues using query builder
+        let sprint_issues = self
+            .issue_repo
+            .query()
+            .where_eq(issue::Column::SprintId, sprint_id)
+            .fetch()
+            .await?;
+
+        // Build the board structure
         let board = steps
             .into_iter()
             .map(|step| {
@@ -69,12 +82,21 @@ impl BoardService {
 
     /// Fetch all issues where sprint_id is None
     pub async fn get_backlog_issues(&self) -> Result<Vec<issue::Model>, DbErr> {
-        self.issue_repo.find_unassigned_backlog().await
+        self.issue_repo
+            .query()
+            .where_null(issue::Column::SprintId)
+            .fetch()
+            .await
     }
 
     /// Fetch active sprints for a given project
     pub async fn get_active_sprints(&self, project_id: i32) -> Result<Vec<sprint::Model>, DbErr> {
-        self.sprint_repo.find_active_by_project(project_id).await
+        self.sprint_repo
+            .query()
+            .where_eq(sprint::Column::ProjectId, project_id)
+            .where_eq(sprint::Column::Status, "Active")
+            .fetch()
+            .await
     }
 
     /// Assign or remove an issue from a sprint
@@ -86,35 +108,93 @@ impl BoardService {
         self.issue_repo.update_step(issue_id, sprint_id).await
     }
 
-    /// Returns workflow steps paired with their respective sprint issues
+    /// Get the active sprint for a project
+    pub async fn get_active_sprint(&self, project_id: i32) -> Result<SprintModel, DbErr> {
+        self.sprint_repo
+            .query()
+            .where_eq(sprint::Column::ProjectId, project_id)
+            .where_eq(sprint::Column::Status, "Active")
+            .fetch_one()
+            .await
+    }
+
+    /// Get the first sprint for a project (fallback)
+    pub async fn get_first_sprint(&self, project_id: i32) -> Result<SprintModel, DbErr> {
+        self.sprint_repo
+            .query()
+            .where_eq(sprint::Column::ProjectId, project_id)
+            .order_asc(sprint::Column::Id)
+            .fetch_one()
+            .await
+    }
+
+    /// Get kanban columns for a specific project and sprint
     pub async fn get_kanban_columns(
         &self,
+        project_id: i32,
         sprint_id: i32,
     ) -> Result<Vec<(WorkflowStepModel, Vec<IssueModel>)>, DbErr> {
-        // 1. Fetch all workflow steps ordered by position
-        let steps = workflow::Entity::find()
-            .order_by_asc(workflow::Column::Position)
-            .all(&self.issue_repo.db)
+        // Get all workflow steps for this project
+        let steps = self
+            .workflow_repo
+            .query()
+            .where_eq(workflow::Column::ProjectId, project_id)
+            .order_asc(workflow::Column::Position)
+            .fetch()
             .await?;
 
-        // 2. Fetch all issues assigned to the active sprint
-        let sprint_issues = issue::Entity::find()
-            .filter(issue::Column::SprintId.eq(sprint_id))
-            .all(&self.issue_repo.db)
-            .await?;
-
-        // 3. Group issues by workflow step ID
-        let mut columns = Vec::new();
+        // For each step, get the issues in that step for this sprint
+        let mut result = Vec::new();
         for step in steps {
-            let step_issues: Vec<IssueModel> = sprint_issues
-                .iter()
-                .filter(|i| i.step_id == step.id)
-                .cloned()
-                .collect();
+            let issues = self
+                .issue_repo
+                .query()
+                .where_eq(issue::Column::SprintId, sprint_id)
+                .where_eq(issue::Column::StepId, step.id)
+                .order_asc(issue::Column::Id)
+                .fetch()
+                .await?;
 
-            columns.push((step, step_issues));
+            result.push((step, issues));
         }
 
-        Ok(columns)
+        Ok(result)
+    }
+
+    /// Get board with eager loaded relations (using find_by_* with with_*)
+    pub async fn get_board_with_relations(
+        &self,
+        project_id: i32,
+        sprint_id: i32,
+    ) -> Result<Vec<(WorkflowStepModel, Vec<IssueModel>)>, DbErr> {
+        // Get workflow steps with their issues loaded eagerly
+        // Using the repository's find_with_* pattern
+        let workflow_repo = self.workflow_repo.clone();
+
+        // First get all steps
+        let steps = workflow_repo
+            .query()
+            .where_eq(workflow::Column::ProjectId, project_id)
+            .order_asc(workflow::Column::Position)
+            .fetch()
+            .await?;
+
+        // For each step, find its issues using the issue repository with with_step
+        let mut result = Vec::new();
+        for step in steps {
+            // Using find_by_* with with_* relation
+            let issues = self
+                .issue_repo
+                .query()
+                .where_eq(issue::Column::StepId, step.id)
+                .where_eq(issue::Column::SprintId, sprint_id)
+                .order_asc(issue::Column::Id)
+                .fetch()
+                .await?;
+
+            result.push((step, issues));
+        }
+
+        Ok(result)
     }
 }
