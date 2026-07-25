@@ -1,11 +1,11 @@
-use gritshield::http::response::HttpStatus;
-use gritshield::prelude::*;
-use serde::Serialize;
-use std::sync::Arc;
 use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload};
 use crate::security::caps::{IssueCreate, IssueEdit, ViewBoard};
 use crate::services::JqlParser;
 use crate::services::issue_service::IssueService;
+use gritshield::http::response::HttpStatus;
+use gritshield::prelude::*;
+use serde::Serialize;
+use std::sync::Arc;
 
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
@@ -162,6 +162,35 @@ impl IssueController {
                 },
             ),
             Err(err_msg) => Response::bad_request(format!("JQL execution failed: {}", err_msg)),
+        }
+    }
+
+    /// PATCH /api/v1/issues/:id/assignee - Assign or unassign an issue
+    #[patch("/:id/assignee")]
+    #[cap(IssueEdit)]
+    pub async fn assign_issue(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        let payload = match ctx.json::<AssignIssuePayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid assignee payload"),
+        };
+
+        match issue_service
+            .assign_issue(issue_id, payload.assignee_id)
+            .await
+        {
+            Ok(updated_issue) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: updated_issue,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Failed to update assignee: {}", e)),
         }
     }
 }
