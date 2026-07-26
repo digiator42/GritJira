@@ -1,4 +1,5 @@
 use crate::repositories::sprint::SprintRepository;
+use crate::security::caps::{IssueCreate, ProjectAdmin};
 use crate::services::JqlParser;
 use crate::services::project_service::ProjectService;
 use crate::services::{board_service::BoardService, issue_service::IssueService};
@@ -236,6 +237,7 @@ impl WebController {
 
     /// GET /jira/issues/new-modal (Target: #modals-container)
     #[get("/issues/new-modal")]
+    #[cap(IssueCreate)]
     pub async fn new_issue_modal(
         ctx: RequestContext,
         project_service: Arc<ProjectService>,
@@ -265,6 +267,7 @@ impl WebController {
 
     /// GET /jira/sprints/new-modal
     #[get("/sprints/new-modal")]
+    #[cap(ProjectAdmin)]
     pub async fn new_sprint_modal(ctx: RequestContext) -> Response {
         let project_id = get_project_context(&ctx);
 
@@ -475,6 +478,7 @@ impl WebController {
 
     /// POST /jira/projects/:id/workflow/create - Create default workflow steps for a project
     #[post("/projects/:id/workflow/create")]
+    #[cap(ProjectAdmin)]
     pub async fn create_project_workflow(
         ctx: RequestContext,
         project_service: Arc<ProjectService>,
