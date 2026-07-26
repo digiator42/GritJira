@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use serde::Serialize;
 use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
+use serde::Serialize;
+use std::sync::Arc;
 
 use crate::dtos::CreateSprintPayload;
 use crate::repositories::sprint::SprintRepository;
@@ -34,11 +34,57 @@ impl SprintController {
             Err(_) => return Response::bad_request("Invalid sprint payload"),
         };
 
-        match sprint_repo.create(project_id, &payload.name, payload.goal).await {
-            Ok(sprint) => Response::json(
-                HttpStatus::Created,
-                &ApiResponse { success: true, data: sprint },
-            ),
+        let is_htmx = ctx.req.has_header("hx-request");
+
+        match sprint_repo
+            .create(project_id, &payload.name, payload.goal)
+            .await
+        {
+            Ok(sprint) => {
+                if is_htmx {
+                    // Return HTML for the new sprint card to be appended
+                    let sprint_html = html! {
+                        div class="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-2" {
+                            div class="flex justify-between items-center border-b border-gray-800 pb-2" {
+                                div class="flex items-center gap-3" {
+                                    div class="font-bold text-white text-sm" { (sprint.name) }
+                                    span class="bg-gray-700 text-gray-300 px-2 py-0.5 rounded text-xxs uppercase" {
+                                        "Planning"
+                                    }
+                                }
+                                div class="flex items-center gap-2" {
+                                    button
+                                        hx-post={"/api/v1/sprints/" (sprint.id) "/start"}
+                                        hx-ext="json-enc"
+                                        hx-target="closest div"
+                                        hx-swap="outerHTML"
+                                        class="text-xxs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded transition" {
+                                        "Start Sprint"
+                                    }
+                                    a href={"/jira/board?project_id=" (project_id) "&sprint_id=" (sprint.id)}
+                                        hx-get={"/jira/board?project_id=" (project_id) "&sprint_id=" (sprint.id)}
+                                        hx-target="#main-content"
+                                        hx-push-url="true"
+                                        class="text-xxs text-blue-400 hover:underline" {
+                                        "View Board"
+                                    }
+                                }
+                            }
+                            p class="text-gray-400 text-xxs" { (sprint.goal.as_deref().unwrap_or("No sprint goal set.")) }
+                        }
+                    };
+                    // Use OOB swap to replace the "No sprints" message if needed
+                    Response::ok(sprint_html.into_string())
+                } else {
+                    Response::json(
+                        HttpStatus::Created,
+                        &ApiResponse {
+                            success: true,
+                            data: sprint,
+                        },
+                    )
+                }
+            }
             Err(e) => Response::bad_request(format!("Failed to create sprint: {}", e)),
         }
     }
@@ -46,20 +92,51 @@ impl SprintController {
     /// POST /api/v1/sprints/:id/start - Activate sprint
     #[post("/:id/start")]
     #[cap(ProjectAdmin)]
-    pub async fn start_sprint(
-        ctx: RequestContext,
-        sprint_repo: Arc<SprintRepository>,
-    ) -> Response {
+    pub async fn start_sprint(ctx: RequestContext, sprint_repo: Arc<SprintRepository>) -> Response {
         let sprint_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid sprint ID"),
         };
 
+        let is_htmx = ctx.req.has_header("hx-request");
+
         match sprint_repo.start_sprint(sprint_id).await {
-            Ok(sprint) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse { success: true, data: sprint },
-            ),
+            Ok(sprint) => {
+                if is_htmx {
+                    // Return updated sprint HTML
+                    let sprint_html = html! {
+                        div class="bg-gray-900 border border-gray-800 rounded-lg p-4 space-y-2" {
+                            div class="flex justify-between items-center border-b border-gray-800 pb-2" {
+                                div class="flex items-center gap-3" {
+                                    div class="font-bold text-white text-sm" { (sprint.name) }
+                                    span class="bg-emerald-950 text-emerald-400 border border-emerald-800/60 px-2 py-0.5 rounded text-xxs uppercase" {
+                                        "Active"
+                                    }
+                                }
+                                div class="flex items-center gap-2" {
+                                    a href={"/jira/board?project_id=" (sprint.project_id) "&sprint_id=" (sprint.id)}
+                                        hx-get={"/jira/board?project_id=" (sprint.project_id) "&sprint_id=" (sprint.id)}
+                                        hx-target="#main-content"
+                                        hx-push-url="true"
+                                        class="text-xxs text-blue-400 hover:underline" {
+                                        "View Board"
+                                    }
+                                }
+                            }
+                            p class="text-gray-400 text-xxs" { (sprint.goal.as_deref().unwrap_or("No sprint goal set.")) }
+                        }
+                    };
+                    Response::ok(sprint_html.into_string())
+                } else {
+                    Response::json(
+                        HttpStatus::Ok,
+                        &ApiResponse {
+                            success: true,
+                            data: sprint,
+                        },
+                    )
+                }
+            }
             Err(e) => Response::bad_request(format!("Failed to start sprint: {}", e)),
         }
     }

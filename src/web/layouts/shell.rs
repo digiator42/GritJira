@@ -1,7 +1,7 @@
 use gritshield::{http::Response, routing::RequestContext};
 use maud::{DOCTYPE, Markup, html};
 
-use crate::web::views::auth_view::login_page_view;
+use crate::web::views::{auth_view::login_page_view, projects_view::project_selector};
 
 /// Master Shell Layout for GritJira / GritAdmin
 pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -> Response {
@@ -20,8 +20,21 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                 span class="text-xxs bg-blue-950 text-blue-400 border border-blue-800/60 font-mono px-2 py-0.5 rounded" { "v0.1.0" }
             }
 
+            // Project Selector (moved to top of nav)
+            div class="p-3 border-b border-gray-800/80" {
+                div class="text-xxs text-gray-500 uppercase tracking-wider mb-2" { "Project" }
+                div id="project-selector-container"
+                    hx-get="/jira/project-selector"
+                    hx-trigger="load"
+                    hx-swap="innerHTML" {
+                    div class="text-gray-500 text-xs animate-pulse" { "Loading projects..." }
+                }
+            }
+
             // Navigation Items
             nav class="flex-1 p-3 space-y-1 overflow-y-auto font-mono text-xs" {
+
+
                 a href="/jira/board"
                     hx-get="/jira/board"
                     hx-target="#main-content"
@@ -44,7 +57,7 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                     hx-get="/jira/projects"
                     hx-target="#main-content"
                     hx-push-url="true"
-                    class="..." {
+                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
                         "📁 Projects"
                     }
 
@@ -52,7 +65,7 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                     hx-get="/jira/search"
                     hx-target="#main-content"
                     hx-push-url="true"
-                    class="..." {
+                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
                         "🔍 Search"
                     }
             }
@@ -200,6 +213,13 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                         }
                         .htmx-request .htmx-indicator {
                             display: block !important;
+                        }
+                        /* Already in your shell.rs */
+                        .htmx-request #create-project-submit-btn span.inline {
+                            display: none;
+                        }
+                        .htmx-request #create-project-submit-btn span.htmx-indicator {
+                            display: inline !important;
                         }
                         @keyframes loading-bar-move {
                             0% { background-position: 100% 0%; }

@@ -1,9 +1,11 @@
+use crate::models::{SprintModel, sprint};
+use chrono::Utc;
 use gritshield::database::GritRepository;
 use gritshield::{GritAdmin, GritComponent};
+use sea_orm::ActiveModelTrait;
+use sprint::ActiveModel;
 use sea_orm::ActiveValue::Set;
 use sea_orm::{DatabaseConnection, DbErr};
-use sea_orm::ActiveModelTrait;
-use crate::models::{SprintModel, sprint};
 
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
@@ -19,12 +21,13 @@ impl SprintRepository {
         project_id: i32,
         name: &str,
         goal: Option<String>,
-    ) -> Result<sprint::Model, DbErr> {
-        let new_sprint = sprint::ActiveModel {
+    ) -> Result<sprint::Model, sea_orm::DbErr> {
+
+        let new_sprint = ActiveModel {
             project_id: Set(project_id),
             name: Set(name.to_string()),
             goal: Set(goal),
-            status: Set("future".to_string()),
+            status: Set("Planning".to_string()),
             ..Default::default()
         };
 
@@ -33,6 +36,9 @@ impl SprintRepository {
 
     pub async fn start_sprint(&self, sprint_id: i32) -> Result<sprint::Model, DbErr> {
         self.update_column_value(sprint_id, "status", "active".into(), None)
+            .await?;
+        let now = Utc::now().naive_utc().to_string();
+        self.update_column_value(sprint_id, "start_date", now, None)
             .await
     }
 

@@ -5,9 +5,9 @@ use crate::repositories::sprint::SprintRepository;
 use crate::repositories::workflow::WorkflowRepository;
 use crate::services::workflow_engine::WorkflowEngine;
 use gritshield::GritComponent;
+use gritshield::database::GritRepository;
 use sea_orm::{DatabaseConnection, DbErr};
 use std::sync::Arc;
-use gritshield::database::GritRepository;
 
 #[derive(Clone, GritComponent)]
 pub struct BoardService {
@@ -133,32 +133,72 @@ impl BoardService {
         &self,
         project_id: i32,
         sprint_id: i32,
-    ) -> Result<Vec<(WorkflowStepModel, Vec<IssueModel>)>, DbErr> {
+    ) -> Result<Vec<(WorkflowStepModel, Vec<IssueModel>)>, sea_orm::DbErr> {
+        use crate::models::issue::{self, Entity as Issue};
+        use crate::models::workflow::{self, Entity as Workflow};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
         // Get all workflow steps for this project
-        let steps = self
-            .workflow_repo
-            .query()
-            .where_eq(workflow::Column::ProjectId, project_id)
-            .order_asc(workflow::Column::Position)
-            .fetch()
+        let steps = Workflow::find()
+            .filter(workflow::Column::ProjectId.eq(project_id))
+            .order_by_asc(workflow::Column::Position)
+            .all(&self.db)
             .await?;
+
+        // If no steps, return empty vec
+        if steps.is_empty() {
+            return Ok(Vec::new());
+        }
 
         // For each step, get the issues in that step for this sprint
         let mut result = Vec::new();
         for step in steps {
-            let issues = self
-                .issue_repo
-                .query()
-                .where_eq(issue::Column::SprintId, sprint_id)
-                .where_eq(issue::Column::StepId, step.id)
-                .order_asc(issue::Column::Id)
-                .fetch()
+            let issues = Issue::find()
+                .filter(issue::Column::SprintId.eq(sprint_id))
+                .filter(issue::Column::StepId.eq(step.id))
+                .order_by_asc(issue::Column::Id)
+                .all(&self.db)
                 .await?;
 
             result.push((step, issues));
         }
 
+        // Also add a debug log to see what's happening
+        println!(
+            "Board: project_id={}, sprint_id={}, steps={}, total_issues={}",
+            project_id,
+            sprint_id,
+            result.len(),
+            result.iter().map(|(_, issues)| issues.len()).sum::<usize>()
+        );
+
         Ok(result)
+    }
+
+    /// Get all issues for a project regardless of sprint (for debugging)
+    pub async fn get_all_project_issues(
+        &self,
+        project_id: i32,
+    ) -> Result<Vec<IssueModel>, sea_orm::DbErr> {
+        use crate::models::issue::{self, Entity as Issue};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+        let issues = Issue::find()
+            .filter(issue::Column::ProjectId.eq(project_id))
+            .all(&self.db)
+            .await?;
+
+        println!("Project {} has {} total issues", project_id, issues.len());
+
+        // Print issue details for debugging
+        for issue in &issues {
+            println!(
+                "Issue: id={}, key={}, sprint_id={:?}, step_id={}",
+                issue.id, issue.key, issue.sprint_id, issue.step_id
+            );
+        }
+
+        Ok(issues)
     }
 
     /// Get board with eager loaded relations (using find_by_* with with_*)

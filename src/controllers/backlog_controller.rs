@@ -70,15 +70,36 @@ impl BacklogController {
             None => return Response::bad_request("Missing or invalid sprint_id"),
         };
 
+        let is_htmx = ctx.req.has_header("hx-request");
+
         match board_service.assign_sprint(issue_id, sprint_id).await {
-            Ok(_) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: "Sprint assigned successfully",
-                },
-            ),
-            Err(e) => Response::bad_request(format!("Assignment failed: {}", e)),
+            Ok(updated_issue) => {
+                if is_htmx {
+                    // Return success message or updated issue row
+                    let success_html = html! {
+                        div class="bg-green-950/30 border border-green-800/60 rounded-lg p-3 flex items-center gap-2" {
+                            span class="text-green-400" { "✅" }
+                            span class="text-green-300 text-xs" { "Assigned to sprint!" }
+                        }
+                    };
+                    Response::ok(success_html.into_string())
+                } else {
+                    Response::json(
+                        HttpStatus::Ok,
+                        &ApiResponse {
+                            success: true,
+                            data: "Sprint assigned successfully",
+                        },
+                    )
+                }
+            }
+            Err(e) => {
+                if is_htmx {
+                    Response::bad_request(format!("Assignment failed: {}", e))
+                } else {
+                    Response::bad_request(format!("Assignment failed: {}", e))
+                }
+            }
         }
     }
 }

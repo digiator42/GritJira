@@ -1,7 +1,7 @@
-// src/services/project_service.rs
 use crate::models::project::{
     self, ActiveModel as ProjectActiveModel, GritRepositoryRecord, Model as ProjectModel,
 };
+use crate::models::workflow::{self, ActiveModel as WorkflowActiveModel};
 use crate::repositories::project::ProjectRepository;
 use chrono::Utc;
 use gritshield::GritComponent;
@@ -56,7 +56,7 @@ impl ProjectService {
         }
     }
 
-    /// Create a new project
+    /// Create a new project with default workflow steps
     pub async fn create_project(
         &self,
         key: &str,
@@ -71,7 +71,37 @@ impl ProjectService {
             ..Default::default()
         };
 
-        new_project.insert(&self.repo.db).await
+        let project = new_project.insert(&self.repo.db).await?;
+
+        // Create default workflow steps for this project
+        self.create_default_workflow_steps(project.id).await?;
+
+        Ok(project)
+    }
+
+    /// Create default workflow steps for a project
+    pub async fn create_default_workflow_steps(
+        &self,
+        project_id: i32,
+    ) -> Result<(), sea_orm::DbErr> {
+        let default_steps = vec![
+            ("To Do", 0),
+            ("In Progress", 1),
+            ("In Review", 2),
+            ("Done", 3),
+        ];
+
+        for (step_name, position) in default_steps {
+            let step = WorkflowActiveModel {
+                project_id: Set(project_id),
+                name: Set(step_name.to_string()),
+                position: Set(position),
+                ..Default::default()
+            };
+            step.insert(&self.repo.db).await?;
+        }
+
+        Ok(())
     }
 
     /// Update project

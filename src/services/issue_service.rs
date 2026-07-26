@@ -1,7 +1,9 @@
+use chrono::Utc;
 use gritshield::GritComponent;
 use gritshield::GritJobExt;
 use gritshield::database::repository::JqlCompiler;
 use gritshield::routing::RequestContext;
+use sea_orm::ActiveValue::Set;
 use sea_orm::DatabaseConnection;
 use sea_orm::DbErr;
 use serde::Deserialize;
@@ -12,16 +14,21 @@ use crate::events::{CommentAdded, IssueCreated, IssueTransitioned};
 use crate::jobs::SendIssueDigestJob;
 use crate::models::IssueModel;
 use crate::models::SprintModel;
+use crate::models::WorkflowStepModel;
 use crate::models::issue::GritRepositoryRecord;
 use crate::models::sprint;
+use crate::models::workflow;
 use crate::models::{comment, issue};
 use crate::repositories::comment::CommentRepository;
 use crate::repositories::issue::IssueRepository;
 use crate::repositories::sprint::SprintRepository;
+use crate::models::issue::{ActiveModel, Column, Entity as IssueEntity};
 use crate::services::JqlParser;
-use sea_orm::ConnectionTrait;
+use sea_orm::ActiveModelTrait;
 use sea_orm::ColumnTrait;
+use sea_orm::ConnectionTrait;
 use sea_orm::EntityTrait;
+use sea_orm::PaginatorTrait;
 use sea_orm::QueryFilter;
 use sea_orm::QueryOrder;
 
@@ -58,7 +65,7 @@ impl IssueService {
             .create(
                 project_id,
                 &payload.summary,
-                &payload.description,
+                payload.description.as_deref().unwrap_or_default(),
                 &payload.issue_type,
                 payload.priority,
                 reporter_id,
@@ -184,6 +191,66 @@ impl IssueService {
             .filter(sprint::Column::ProjectId.eq(project_id))
             .order_by_desc(sprint::Column::StartDate)
             .all(&self.issue_repo.db)
+            .await
+    }
+
+    /// Create issue with explicit step_id
+    pub async fn create_issue_with_step(
+        &self,
+        payload: CreateIssuePayload,
+        project_id: i32,
+        reporter_id: i32,
+        step_id: i32,
+        ctx: &RequestContext,
+    ) -> Result<IssueModel, String> {
+        // Generate issue key
+        let project_key = ctx
+            .get_session_data("current_project_key")
+            .unwrap_or_else(|| "PROJ".to_string());
+
+        // Use IssueEntity explicitly
+        let count = IssueEntity::find()
+            .filter(Column::ProjectId.eq(project_id))
+            .count(&self.issue_repo.db)
+            .await
+            .map_err(|e| format!("Database error: {}", e))?;
+
+        let issue_key = format!("{}-{}", project_key, count + 1);
+
+        let new_issue = ActiveModel {
+            project_id: Set(project_id),
+            key: Set(issue_key),
+            summary: Set(payload.summary),
+            description: Set(payload.description),
+            issue_type: Set(payload.issue_type),
+            priority: Set(payload.priority.to_string()),
+            step_id: Set(step_id),
+            reporter_id: Set(reporter_id),
+            assignee_id: Set(payload.assignee_id),
+            sprint_id: Set(payload.sprint_id),
+            story_points: Set(payload.story_points),
+            created_at: Set(Utc::now().naive_utc()),
+            ..Default::default()
+        };
+
+        new_issue
+            .insert(&self.issue_repo.db)
+            .await
+            .map_err(|e| format!("Database error: {}", e))
+    }
+
+    /// Get the first workflow step for a project (lowest position)
+    pub async fn get_first_workflow_step(
+        &self,
+        project_id: i32,
+    ) -> Result<Option<workflow::Model>, sea_orm::DbErr> {
+        use crate::models::workflow::{self, Entity as Workflow};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+        Workflow::find()
+            .filter(workflow::Column::ProjectId.eq(project_id))
+            .order_by_asc(workflow::Column::Position)
+            .one(&self.issue_repo.db)
             .await
     }
 }

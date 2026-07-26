@@ -1,11 +1,18 @@
-use maud::{html, Markup};
+// src/web/partials/create_issue_modal.rs
 
-pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup {
+use crate::models::sprint::Model as SprintModel;
+use maud::{Markup, html};
+
+pub fn create_issue_modal(
+    project_id: i32,
+    project_key: Option<&str>,
+    sprints: &[SprintModel],
+) -> Markup {
     let project_key_display = project_key.unwrap_or("GRIT");
 
     html! {
-        // ─── MODAL BACKDROP (THIS IS THE ROOT ELEMENT) ───
-        div id="create-issue-modal" 
+        // ─── MODAL BACKDROP ───
+        div id="create-issue-modal"
             class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4"
             onclick="if(event.target === this) this.remove()" {
 
@@ -31,12 +38,20 @@ pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup 
                     }
                 }
 
+                // ─── ERROR DISPLAY ───
+                div id="create-issue-error" class="hidden px-6 pt-4" {
+                    div class="bg-red-950/30 border border-red-800/60 rounded-lg p-3 text-center" {
+                        p id="create-issue-error-message" class="text-red-300 text-sm" {}
+                    }
+                }
+
                 // ─── FORM ───
-                form hx-post={(format!("/jira/issues/projects/{}/issues/create", project_id))}
+                form id="create-issue-form"
+                     hx-post="/api/v1/issues"
                      hx-ext="json-enc"
-                     hx-target="#main-content"
+                     hx-target="#create-issue-result"
                      hx-swap="innerHTML"
-                     hx-on--after-request="document.getElementById('create-issue-modal').remove()"
+                     hx-on--after-request="handleCreateIssueResponse(event)"
                      class="flex-1 overflow-y-auto p-6 space-y-5" {
 
                     // ─── HIDDEN FIELDS ───
@@ -67,14 +82,16 @@ pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup 
                             class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition resize-y" {}
                     }
 
-                    // ─── GRID: TYPE, PRIORITY, ASSIGNEE ───
-                    div class="grid grid-cols-3 gap-4" {
+                    // ─── GRID: TYPE, PRIORITY ───
+                    div class="grid grid-cols-2 gap-4" {
                         // Issue Type
                         div class="space-y-1.5" {
                             label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
                                 "Issue Type"
+                                span class="text-red-400 ml-1" { "*" }
                             }
                             select name="issue_type"
+                                required
                                 class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
                                 option value="task" selected { "📋 Task" }
                                 option value="bug" { "🐛 Bug" }
@@ -87,8 +104,10 @@ pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup 
                         div class="space-y-1.5" {
                             label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
                                 "Priority"
+                                span class="text-red-400 ml-1" { "*" }
                             }
                             select name="priority"
+                                required
                                 class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
                                 option value="1" { "🔴 Highest (P1)" }
                                 option value="2" { "🟠 High (P2)" }
@@ -97,19 +116,43 @@ pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup 
                                 option value="5" { "⚪ Lowest (P5)" }
                             }
                         }
+                    }
 
-                        // Assignee
-                        div class="space-y-1.5" {
-                            label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
-                                "Assignee"
+                    // ─── SPRINT SELECTION (MANDATORY) ───
+                    div class="space-y-1.5" {
+                        label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
+                            "Sprint"
+                            span class="text-red-400 ml-1" { "*" }
+                        }
+                        select name="sprint_id"
+                            required
+                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
+                            @if sprints.is_empty() {
+                                option value="" selected { "No sprints available - create one first" }
+                            } @else {
+                                @for sprint in sprints {
+                                    option value=(sprint.id) {
+                                        (sprint.name) " (" (sprint.status) ")"
+                                    }
+                                }
                             }
-                            select name="assignee_id"
-                                class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
-                                option value="" { "Unassigned" }
-                                option value="1" { "Alex Developer" }
-                                option value="2" { "Sarah Manager" }
-                                option value="3" { "John Admin" }
-                            }
+                        }
+                        p class="text-xxs text-gray-500" {
+                            "Issues must be assigned to a sprint to appear on the board."
+                        }
+                    }
+
+                    // ─── ASSIGNEE ───
+                    div class="space-y-1.5" {
+                        label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
+                            "Assignee"
+                        }
+                        select name="assignee_id"
+                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
+                            option value="" { "Unassigned" }
+                            option value="1" { "Alex Developer" }
+                            option value="2" { "Sarah Manager" }
+                            option value="3" { "John Admin" }
                         }
                     }
 
@@ -123,6 +166,9 @@ pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup 
                             placeholder="frontend, bugfix, high-impact"
                             class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition";
                     }
+
+                    // ─── RESULT CONTAINER (for success/error messages) ───
+                    div id="create-issue-result" {}
 
                     // ─── FOOTER ───
                     div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-800/60 bg-gray-900/30 -mx-6 px-6 py-4 flex-shrink-0" {
@@ -140,6 +186,51 @@ pub fn create_issue_modal(project_id: i32, project_key: Option<&str>) -> Markup 
                     }
                 }
             }
+        }
+
+        // ─── JAVASCRIPT HANDLER ───
+        script {
+            (maud::PreEscaped(r#"
+                function handleCreateIssueResponse(event) {
+                    const response = event.detail.xhr;
+                    const resultContainer = document.getElementById('create-issue-result');
+                    
+                    if (response.status >= 200 && response.status < 300) {
+                        // Success - show success message and close after delay
+                        resultContainer.innerHTML = `
+                            <div class="bg-green-950/30 border border-green-800/60 rounded-lg p-4 text-center">
+                                <div class="text-green-400 text-2xl mb-2">✅</div>
+                                <p class="text-green-300 text-sm">Issue created successfully!</p>
+                            </div>
+                        `;
+                        setTimeout(function() {
+                            const modal = document.getElementById('create-issue-modal');
+                            if (modal) modal.remove();
+                            // Redirect to backlog
+                            htmx.ajax('GET', '/jira/backlog', {
+                                target: '#main-content',
+                                swap: 'innerHTML',
+                                pushUrl: true
+                            });
+                        }, 1500);
+                    } else {
+                        // Error - show error message in the modal
+                        const errorDiv = document.getElementById('create-issue-error');
+                        const errorMsg = document.getElementById('create-issue-error-message');
+                        if (errorDiv && errorMsg) {
+                            try {
+                                const data = JSON.parse(response.responseText);
+                                errorMsg.textContent = data.message || 'An error occurred';
+                            } catch {
+                                errorMsg.textContent = response.responseText || 'An error occurred';
+                            }
+                            errorDiv.classList.remove('hidden');
+                        }
+                        // Re-enable the submit button
+                        document.getElementById('create-submit-btn').disabled = false;
+                    }
+                }
+            "#))
         }
 
         // ─── STYLES ───
