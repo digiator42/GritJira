@@ -1,4 +1,7 @@
+use crate::models::{ProjectMemberModel, UserModel, sprint, workflow};
 use crate::repositories::sprint::SprintRepository;
+use crate::repositories::user::UserRepository;
+use crate::repositories::workflow::WorkflowRepository;
 use crate::security::caps::{IssueCreate, ProjectAdmin};
 use crate::services::JqlParser;
 use crate::services::project_service::ProjectService;
@@ -12,6 +15,9 @@ use crate::web::views::auth_view::login_page_view;
 use crate::web::views::helpers::get_project_context;
 use crate::web::views::projects_view::{project_selector, projects_view};
 use crate::web::views::search_view::search_page;
+use crate::web::views::settings_view::settings_view;
+use crate::web::views::user_management_view::user_management_view;
+use crate::web::views::workflow_management_view::workflow_management_view;
 use crate::web::views::{backlog_view::backlog_view, board_view::kanban_board_view};
 use gritshield::database::GritRepository;
 use gritshield::http::response::HttpStatus;
@@ -209,6 +215,7 @@ impl WebController {
         ctx: RequestContext,
         issue_service: Arc<IssueService>,
         sprint_repo: Arc<SprintRepository>,
+        workflow_repo: Arc<WorkflowRepository>,
     ) -> Response {
         let project_id = get_project_context(&ctx);
 
@@ -584,5 +591,126 @@ impl WebController {
         };
 
         Response::ok(markup.into_string())
+    }
+
+    /// GET /jira/settings - Project settings page
+    #[get("/settings")]
+    pub async fn settings_page(
+        ctx: RequestContext,
+        project_service: Arc<ProjectService>,
+        workflow_repo: Arc<WorkflowRepository>,
+        user_repo: Arc<UserRepository>,
+    ) -> Response {
+        let project_id = get_project_context(&ctx);
+
+        // Get project details
+        let project = match project_service.get_project_by_id(project_id).await {
+            Ok(Some(p)) => p,
+            Ok(None) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Project not found" }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+            Err(e) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Failed to load project: " (e.to_string()) }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+        };
+
+        // Get workflow steps
+        let workflows = workflow_repo
+            .query()
+            .where_eq(workflow::Column::ProjectId, project_id)
+            .order_asc(workflow::Column::Position)
+            .fetch()
+            .await
+            .unwrap_or_default();
+
+        // Get project members (placeholder - you'll need to implement this)
+        let project_members: Vec<ProjectMemberModel> = vec![];
+
+        // Get all users (for member management)
+        let users = user_repo.query().fetch().await.unwrap_or_default();
+
+        let markup = settings_view(project_id, &project, &workflows, &users, &project_members);
+        markup.render(ctx, "Settings")
+    }
+
+    /// GET /jira/settings/users - User management page
+    #[get("/settings/users")]
+    pub async fn user_management_page(
+        ctx: RequestContext,
+        project_service: Arc<ProjectService>,
+        user_repo: Arc<UserRepository>,
+    ) -> Response {
+        let project_id = get_project_context(&ctx);
+
+        // Get project details
+        let project = match project_service.get_project_by_id(project_id).await {
+            Ok(Some(p)) => p,
+            Ok(None) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Project not found" }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+            Err(e) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Failed to load project: " (e.to_string()) }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+        };
+
+        // Get project members (placeholder)
+        let project_members: Vec<ProjectMemberModel> = vec![];
+
+        // Get all users
+        let users = user_repo.query().fetch().await.unwrap_or_default();
+
+        let markup = user_management_view(project_id, &project.name, &project_members, &users);
+        markup.render(ctx, "User Management")
+    }
+
+    /// GET /jira/settings/workflow - Workflow management page
+    #[get("/settings/workflow")]
+    pub async fn workflow_management_page(
+        ctx: RequestContext,
+        project_service: Arc<ProjectService>,
+        workflow_repo: Arc<WorkflowRepository>,
+    ) -> Response {
+        let project_id = get_project_context(&ctx);
+
+        // Get project details
+        let project = match project_service.get_project_by_id(project_id).await {
+            Ok(Some(p)) => p,
+            Ok(None) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Project not found" }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+            Err(e) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Failed to load project: " (e.to_string()) }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+        };
+
+        // Get workflow steps
+        let workflows = workflow_repo
+            .query()
+            .where_eq(workflow::Column::ProjectId, project_id)
+            .order_asc(workflow::Column::Position)
+            .fetch()
+            .await
+            .unwrap_or_default();
+
+        let markup = workflow_management_view(project_id, &project.name, &workflows);
+        markup.render(ctx, "Workflow Management")
     }
 }

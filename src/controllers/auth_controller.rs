@@ -1,10 +1,13 @@
-use std::sync::Arc;
-use serde::{Deserialize, Serialize};
-use gritshield::GritSanitizer;
+use crate::repositories::project::ProjectRepository;
+use crate::repositories::project_member::ProjectMemberRepository;
+use crate::repositories::user::UserRepository;
 use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
-
-use crate::repositories::user::UserRepository;
+use gritshield::{GritSanitizer, info};
+use sea_orm::ModelTrait;
+use sea_orm::QueryOrder;
+use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
 #[derive(Deserialize, GritSanitizer)]
 pub struct LoginPayload {
@@ -35,7 +38,12 @@ pub struct AuthController;
 #[controller("/api/v1/auth")]
 impl AuthController {
     #[post("/login")]
-    pub async fn handle_login(ctx: RequestContext, user_repo: Arc<UserRepository>) -> Response {
+    pub async fn handle_login(
+        ctx: RequestContext,
+        user_repo: Arc<UserRepository>,
+        project_repo: Arc<ProjectRepository>,
+        project_member_repo: Arc<ProjectMemberRepository>,
+    ) -> Response {
         let payload = match ctx.json::<LoginPayload>().await {
             Ok(p) => p,
             Err(e) => return Response::bad_request(format!("Invalid request body: {:?}", e)),
@@ -50,9 +58,48 @@ impl AuthController {
 
         let user_id = user.id;
 
+        // Get default project from project_members table
+        let default_project_id = match project_member_repo.get_user_default_project(user_id).await {
+            Ok(Some(project_id)) => project_id,
+            Ok(None) => {
+                // User has no projects - try to get first project
+                match project_repo.get_first_project().await {
+                    Ok(Some(project_id)) => {
+                        // Add user to first project
+                        let _ = project_member_repo
+                            .add_user_to_project(project_id, user_id, &user.username, "Member")
+                            .await;
+                        project_id
+                    }
+                    Ok(None) | Err(_) => {
+                        1
+                    }
+                }
+            }
+            Err(e) => {
+                1
+            }
+        };
+        // Get the project key for the default project
+        let project_key = match project_repo.get_project_key(default_project_id).await {
+            Ok(Some(key)) => key,
+            Ok(None) => "DEFAULT".to_string(),
+            Err(e) => "DEFAULT".to_string(),
+        };
+
         // Set session context
         ctx.set_session_data("user_id", &user_id.to_string());
         ctx.set_session_data("role", &user.role);
+        ctx.set_session_data("current_project_id", &default_project_id.to_string());
+        ctx.set_session_data("current_project_key", &project_key);
+
+        // Set user's default project in session for quick access
+        ctx.set_session_data("default_project_id", &default_project_id.to_string());
+
+        info!(
+            "User {} logged in with default project {} ({})",
+            user.email, default_project_id, project_key
+        );
 
         Response::json(
             HttpStatus::Ok,
@@ -62,6 +109,10 @@ impl AuthController {
                 user_id: Some(user_id),
                 role: Some(user.role.clone()),
             },
+        )
+        .with_header(
+            "HX-Redirect",
+            &format!("/jira/board?project_id={}", default_project_id),
         )
     }
 

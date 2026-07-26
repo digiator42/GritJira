@@ -4,3 +4,4 @@ pub mod project;
 pub mod sprint;
 pub mod user;
 pub mod workflow;
+pub mod project_member;

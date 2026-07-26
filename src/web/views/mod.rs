@@ -4,3 +4,6 @@ pub mod backlog_view;
 pub mod projects_view;
 pub mod search_view;
 pub mod helpers;
+pub mod settings_view;
+pub mod user_management_view;
+pub mod workflow_management_view;

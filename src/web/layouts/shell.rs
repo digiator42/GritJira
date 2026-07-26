@@ -68,6 +68,17 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                     class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
                         "🔍 Search"
                     }
+                
+                // Settings divider
+                div class="border-t border-gray-800/60 my-2" {}
+
+                a href="/jira/settings"
+                    hx-get="/jira/settings"
+                    hx-target="#main-content"
+                    hx-push-url="true"
+                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-white transition" {
+                    "⚙️ Settings"
+                }
             }
 
             // Footer Action
