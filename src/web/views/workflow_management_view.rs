@@ -34,21 +34,21 @@ pub fn workflow_management_view(
                     hx-get="/jira/settings"
                     hx-target="#main-content"
                     hx-swap="innerHTML"
-                    class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-gray-600 transition" {
+                    class="px-4 py-2 text-sm whitespace-nowrap transition" {
                     "⚙️ General"
                 }
                 a href={"/jira/settings/users?project_id=" (project_id)}
                     hx-get={"/jira/settings/users?project_id=" (project_id)}
                     hx-target="#main-content"
                     hx-swap="innerHTML"
-                    class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-gray-600 transition" {
+                    class="px-4 py-2 text-sm whitespace-nowrap transition" {
                     "👥 Users"
                 }
                 a href={"/jira/settings/workflow?project_id=" (project_id)}
                     hx-get={"/jira/settings/workflow?project_id=" (project_id)}
                     hx-target="#main-content"
                     hx-swap="innerHTML"
-                    class="px-4 py-2 text-sm text-blue-400 border-b-2 border-blue-400 transition" {
+                    class="px-4 py-2 text-sm whitespace-nowrap transition" {
                     "📋 Workflow"
                 }
             }

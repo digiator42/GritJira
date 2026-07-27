@@ -1,11 +1,10 @@
-// src/web/views/user_management_view.rs
 use maud::{Markup, html};
-use crate::models::{UserModel, ProjectMemberModel};
+use crate::{controllers::web_controller::MemberWithUser, models::{ProjectMemberModel, UserModel}};
 
 pub fn user_management_view(
     project_id: i32,
     project_name: &str,
-    members: &[ProjectMemberModel],
+    members: &[MemberWithUser],
     available_users: &[UserModel],
 ) -> Markup {
     html! {
@@ -36,21 +35,21 @@ pub fn user_management_view(
                     hx-get="/jira/settings"
                     hx-target="#main-content"
                     hx-swap="innerHTML"
-                    class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-gray-600 transition" {
+                    class="px-4 py-2 text-sm whitespace-nowrap transition" {
                     "⚙️ General"
                 }
                 a href={"/jira/settings/users?project_id=" (project_id)}
                     hx-get={"/jira/settings/users?project_id=" (project_id)}
                     hx-target="#main-content"
                     hx-swap="innerHTML"
-                    class="px-4 py-2 text-sm text-blue-400 border-b-2 border-blue-400 transition" {
+                    class="px-4 py-2 text-sm whitespace-nowrap transition" {
                     "👥 Users"
                 }
                 a href={"/jira/settings/workflow?project_id=" (project_id)}
                     hx-get={"/jira/settings/workflow?project_id=" (project_id)}
                     hx-target="#main-content"
                     hx-swap="innerHTML"
-                    class="px-4 py-2 text-sm text-gray-400 hover:text-gray-200 border-b-2 border-transparent hover:border-gray-600 transition" {
+                    class="px-4 py-2 text-sm whitespace-nowrap transition" {
                     "📋 Workflow"
                 }
             }
@@ -122,6 +121,7 @@ pub fn user_management_view(
                                             name="role"
                                             hx-patch={"/api/v1/projects/" (project_id) "/members/" (member.id)}
                                             hx-trigger="change"
+                                            hx-ext="json-enc"
                                             hx-target="closest tr"
                                             hx-swap="outerHTML"
                                             class="bg-gray-950 border border-gray-800 rounded px-2 py-1 text-xs text-gray-300 focus:outline-none focus:border-blue-500" {
@@ -137,6 +137,7 @@ pub fn user_management_view(
                                                 hx-delete={"/api/v1/projects/" (project_id) "/members/" (member.id)}
                                                 hx-target="closest tr"
                                                 hx-swap="outerHTML"
+                                                hx-ext="json-enc"
                                                 hx-confirm={"Remove " (member.username) " from the project?"}
                                                 class="text-red-400 hover:text-red-300 text-xxs transition" {
                                                 "✕ Remove"

@@ -2,6 +2,7 @@ use crate::models::{ProjectMemberModel, UserModel, sprint, workflow};
 use crate::repositories::sprint::SprintRepository;
 use crate::repositories::user::UserRepository;
 use crate::repositories::workflow::WorkflowRepository;
+use crate::repositories::project_member::ProjectMemberRepository;
 use crate::security::caps::{IssueCreate, ProjectAdmin};
 use crate::services::JqlParser;
 use crate::services::project_service::ProjectService;
@@ -19,6 +20,7 @@ use crate::web::views::settings_view::settings_view;
 use crate::web::views::user_management_view::user_management_view;
 use crate::web::views::workflow_management_view::workflow_management_view;
 use crate::web::views::{backlog_view::backlog_view, board_view::kanban_board_view};
+use chrono::NaiveDateTime;
 use gritshield::database::GritRepository;
 use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
@@ -27,6 +29,16 @@ use sea_orm::DbErr;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 use std::sync::Arc;
+
+#[derive(Clone)]
+pub struct MemberWithUser {
+    pub id: i32,
+    pub project_id: i32,
+    pub user_id: i32,
+    pub username: String,
+    pub role: String,
+    pub joined_at: NaiveDateTime,
+}
 
 pub struct WebController;
 
@@ -645,6 +657,7 @@ impl WebController {
         ctx: RequestContext,
         project_service: Arc<ProjectService>,
         user_repo: Arc<UserRepository>,
+        project_member_repo: Arc<ProjectMemberRepository>,
     ) -> Response {
         let project_id = get_project_context(&ctx);
 
@@ -665,8 +678,32 @@ impl WebController {
             }
         };
 
-        // Get project members (placeholder)
-        let project_members: Vec<ProjectMemberModel> = vec![];
+        // Get project members with user details
+        let members_with_users = match project_member_repo
+            .get_project_members_with_users(project_id)
+            .await
+        {
+            Ok(members) => members,
+            Err(e) => {
+                let error_markup = html! {
+                    div class="p-6 text-red-400" { "Failed to load members: " (e.to_string()) }
+                };
+                return error_markup.render(ctx, "Error");
+            }
+        };
+
+        // Convert to the format expected by the view
+        let project_members: Vec<MemberWithUser> = members_with_users
+            .into_iter()
+            .map(|(member, user)| MemberWithUser {
+                id: member.id,
+                project_id: member.project_id,
+                user_id: member.user_id,
+                username: user.username,
+                role: member.role,
+                joined_at: member.joined_at,
+            })
+            .collect();
 
         // Get all users
         let users = user_repo.query().fetch().await.unwrap_or_default();

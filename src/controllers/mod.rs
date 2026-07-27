@@ -6,3 +6,5 @@ pub mod project_controller;
 pub mod sprint_controller;
 pub mod user_controller;
 pub mod web_controller;
+pub mod project_member_controller;
+pub mod workflow_controller;

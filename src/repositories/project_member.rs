@@ -51,4 +51,66 @@ impl ProjectMemberRepository {
         member.insert(&self.db).await?;
         Ok(())
     }
+
+    /// Remove a member from a project
+    pub async fn remove_member(&self, member_id: i32) -> Result<bool, sea_orm::DbErr> {
+        use crate::models::project_member::{self, Entity as ProjectMember};
+        use sea_orm::ColumnTrait;
+
+        let result = ProjectMember::delete_by_id(member_id)
+            .exec(&self.db)
+            .await?;
+
+        Ok(result.rows_affected > 0)
+    }
+
+    /// Update a member's role
+    pub async fn update_member_role(
+        &self,
+        member_id: i32,
+        role: &str,
+    ) -> Result<Option<crate::models::project_member::Model>, sea_orm::DbErr> {
+        use crate::models::project_member::{self, Entity as ProjectMember};
+        use sea_orm::ColumnTrait;
+
+        let member = ProjectMember::find_by_id(member_id).one(&self.db).await?;
+
+        if let Some(m) = member {
+            let mut active: project_member::ActiveModel = m.into();
+            active.role = Set(role.to_string());
+            let updated = active.update(&self.db).await?;
+            Ok(Some(updated))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get all members of a project with user details (username from users table)
+    pub async fn get_project_members_with_users(
+        &self,
+        project_id: i32,
+    ) -> Result<
+        Vec<(
+            crate::models::project_member::Model,
+            crate::models::user::Model,
+        )>,
+        sea_orm::DbErr,
+    > {
+        use crate::models::project_member::{self, Entity as ProjectMember};
+        use crate::models::user::{self, Entity as User};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+        let members = ProjectMember::find()
+            .filter(project_member::Column::ProjectId.eq(project_id))
+            .find_also_related(User)
+            .all(&self.db)
+            .await?;
+
+        let members_with_users = members
+            .into_iter()
+            .filter_map(|(member, user)| user.map(|user| (member, user)))
+            .collect();
+
+        Ok(members_with_users)
+    }
 }
