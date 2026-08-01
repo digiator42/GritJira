@@ -1,6 +1,8 @@
 use chrono::Utc;
 use gritshield::{GritAdmin, GritComponent};
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder, Set};
+
+use crate::models::UserModel;
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
     entity = "crate::models::project_member",
@@ -20,11 +22,7 @@ impl ProjectMemberRepository {
         use crate::models::project_member::{self, Entity as ProjectMember};
         use sea_orm::ColumnTrait;
 
-        let member = ProjectMember::find()
-            .filter(project_member::Column::UserId.eq(user_id))
-            .order_by_asc(project_member::Column::JoinedAt)
-            .one(&self.db)
-            .await?;
+        let member = ProjectMember::find_by_id(user_id).one(&self.db).await?;
 
         Ok(member.map(|m| m.project_id))
     }

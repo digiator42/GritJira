@@ -73,7 +73,7 @@ impl IssueService {
             )
             .await?;
 
-        // 1. Publish Event[cite: 36]
+        // 1. Publish Event
         ctx.event_bus.publish(IssueCreated {
             issue_id: issue.id,
             key: issue.key.clone(),

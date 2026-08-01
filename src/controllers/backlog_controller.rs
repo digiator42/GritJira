@@ -102,4 +102,11 @@ impl BacklogController {
             }
         }
     }
+    #[get("/api/version")]
+    pub fn get_version() -> Response {
+        Response::json_ok(&serde_json::json!({
+            "version": "1.0.0",
+            "name": "MyApp"
+        }))
+    }
 }

@@ -820,7 +820,7 @@ checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
 
 [[package]]
 name = "gritshield"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "base64 0.21.7",
  "chrono",
@@ -856,7 +856,9 @@ dependencies = [
 
 [[package]]
 name = "gritshield_macros"
-version = "0.1.1"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0236a288d1a123ffab0200ca5b81d2e9332a811e0b0dffbd28f685fa250f1ce0"
 dependencies = [
  "inventory",
  "lazy_static",
@@ -2766,7 +2768,6 @@ dependencies = [
  "serde",
  "serde-aux",
  "serde_json",
- "tokio",
  "validator",
 ]
 

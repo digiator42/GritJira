@@ -21,10 +21,10 @@ pub struct ViewBoard;
 // ============================================================
 // Single Source of Truth Capability Registry
 // ============================================================
-// declare_security_caps! {
-//     IssueEdit    => [Admin, Manager, Developer],
-//     IssueCreate  => [Admin, Manager, Developer, Tester],
-//     IssueDelete  => [Admin, Manager],
-//     ProjectAdmin => [Admin],
-//     ViewBoard    => [Admin, Manager, Developer, Tester, Viewer],
-// }
+declare_security_caps! {
+    IssueEdit    => [Admin, Manager, Developer],
+    IssueCreate  => [Admin, Manager, Developer, Tester],
+    IssueDelete  => [Admin, Manager],
+    ProjectAdmin => [Admin],
+    ViewBoard    => [Admin, Manager, Developer, Tester, Viewer],
+}

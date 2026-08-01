@@ -172,7 +172,7 @@ impl ProjectController {
             }
         }
     }
-    
+
     /// PATCH /api/v1/projects/:id - Update project
     #[patch("/:id")]
     #[cap(ProjectAdmin)]

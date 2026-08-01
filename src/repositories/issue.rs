@@ -1,8 +1,8 @@
+use crate::models::{IssueModel, issue};
 use gritshield::database::GritRepository;
 use gritshield::{GritAdmin, GritComponent};
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, Set};
 use sea_orm::FromQueryResult;
-use crate::models::{IssueModel, issue};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, Set};
 
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
@@ -65,10 +65,11 @@ impl IssueRepository {
     }
 
     /// Executes a compiled JQL SeaORM Statement directly against the DB
-    pub async fn find_by_statement(&self, stmt: sea_orm::Statement) -> Result<Vec<IssueModel>, DbErr> {
-        IssueModel::find_by_statement(stmt)
-            .all(&self.db)
-            .await
+    pub async fn find_by_statement(
+        &self,
+        stmt: sea_orm::Statement,
+    ) -> Result<Vec<IssueModel>, DbErr> {
+        IssueModel::find_by_statement(stmt).all(&self.db).await
     }
 
     /// Fetch issues for a specific sprint using GritShield QueryBuilder
