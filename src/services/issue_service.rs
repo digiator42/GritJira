@@ -86,7 +86,7 @@ impl IssueService {
             issue_id: issue.id,
             recipient_emails: vec!["team-lead@gritshield.io".to_string()],
         };
-        let _ = job.enqueue(&ctx.job_queue).await;
+        let _ = job.enqueue().await;
 
         Ok(issue)
     }

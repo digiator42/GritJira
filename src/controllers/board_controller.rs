@@ -98,7 +98,7 @@ impl BoardController {
             project_id: 10,
         };
 
-        let _ = job.enqueue_in(&ctx.job_queue, Duration::from_secs(5)).await;
+        let _ = job.enqueue_in(Duration::from_secs(5)).await;
 
         Response::json(
             HttpStatus::Ok,
