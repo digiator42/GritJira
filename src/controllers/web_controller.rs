@@ -84,7 +84,7 @@ impl WebController {
         };
 
         // Try to get a sprint for this project
-        let sprint_id = match ctx.query.get("sprint_id").and_then(|v| v.parse().ok()) {
+        let sprint_id = match ctx.query.get("sprint_id").and_then(|v| v.first()).and_then(|s| s.parse().ok()) {
             Some(id) => id,
             None => {
                 // Try to find active sprint
@@ -328,7 +328,8 @@ impl WebController {
         let jql = ctx
             .query
             .get("jql")
-            .map(|v| v.to_string())
+            .and_then(|v| v.first())
+            .map(|s| s.to_string())
             .unwrap_or("".to_string());
 
         let issues = issue_service
@@ -462,7 +463,8 @@ impl WebController {
         let project_id: i32 = ctx
             .query
             .get("project_id")
-            .and_then(|v| v.parse().ok())
+            .and_then(|v| v.first())
+            .and_then(|s| s.parse().ok())
             .unwrap_or(1);
 
         // Verify project exists

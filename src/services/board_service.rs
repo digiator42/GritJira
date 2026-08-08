@@ -105,7 +105,7 @@ impl BoardService {
         issue_id: i32,
         sprint_id: i32,
     ) -> Result<issue::Model, DbErr> {
-        self.issue_repo.update_step(issue_id, sprint_id).await
+        self.issue_repo.update_sprint(issue_id, Some(sprint_id)).await
     }
 
     /// Get the active sprint for a project

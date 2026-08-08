@@ -253,4 +253,24 @@ impl IssueService {
             .one(&self.issue_repo.db)
             .await
     }
+
+    /// Update issue details
+    pub async fn update_issue(
+        &self,
+        issue_id: i32,
+        summary: Option<&str>,
+        description: Option<&str>,
+        priority: Option<i32>,
+        issue_type: Option<&str>,
+        story_points: Option<i32>,
+    ) -> Result<Option<issue::Model>, DbErr> {
+        self.issue_repo
+            .update_issue(issue_id, summary, description, priority, issue_type, story_points)
+            .await
+    }
+
+    /// Delete issue
+    pub async fn delete_issue(&self, issue_id: i32) -> Result<bool, DbErr> {
+        self.issue_repo.delete_issue(issue_id).await
+    }
 }

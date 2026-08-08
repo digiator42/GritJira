@@ -11,6 +11,7 @@ impl MaudRender for Markup {
     fn render(self, ctx: RequestContext, title: &str) -> Response {
         let is_htmx = ctx.headers
             .get("hx-request")
+            .and_then(|v| v.first())
             .map(|v| v == "true" || v == "1")
             .unwrap_or(false);
         

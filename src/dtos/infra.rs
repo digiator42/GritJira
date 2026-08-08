@@ -52,6 +52,15 @@ pub struct CreateSprintPayload {
 }
 
 #[derive(Deserialize, GritSanitizer)]
+pub struct UpdateSprintPayload {
+    #[clean(trim, html_escape)]
+    pub name: Option<String>,
+
+    #[clean(trim, html_escape)]
+    pub goal: Option<String>,
+}
+
+#[derive(Deserialize, GritSanitizer)]
 pub struct MoveIssuePayload {
     pub target_step_id: i32,
 }
@@ -62,11 +71,18 @@ pub struct MoveIssuePayload {
 #[derive(Deserialize, GritSanitizer)]
 pub struct UpdateIssuePayload {
     #[clean(trim, html_escape)]
-    pub title: Option<String>,
+    pub summary: Option<String>,
 
     #[clean(trim, html_escape)]
     pub description: Option<String>,
 
-    #[clean(nested)] // Calls nested struct/vector sanitization in-place
-    pub initial_comment: Option<AddCommentPayload>,
+    #[serde(default)]
+    pub priority: Option<i32>,
+
+    #[clean(trim, lowercase)]
+    #[serde(default)]
+    pub issue_type: Option<String>,
+
+    #[serde(default)]
+    pub story_points: Option<i32>,
 }

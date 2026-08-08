@@ -101,7 +101,7 @@ impl WorkflowController {
         let is_htmx = ctx.req.has_header("hx-request");
 
         // For HTMX form submissions, use form fields
-        let name = ctx.form.fields.get("name").map(|v| v.as_str());
+        let name = ctx.form.fields.get("name").and_then(|v| v.first().map(|s| s.as_str()));
 
         match workflow_repo.update_step(step_id, name).await {
             Ok(Some(step)) => {
@@ -110,7 +110,7 @@ impl WorkflowController {
                         input type="text"
                             value=(step.name)
                             class="flex-1 bg-transparent text-sm text-white focus:outline-none focus:border-blue-500 border border-transparent rounded px-2 py-1"
-                            hx-patch={"/jira/projects/" (ctx.params.get("project_id").unwrap()) "/workflow/" (step.id)}
+                            hx-patch={"/jira/projects/" (ctx.params.get("project_id").map(|s| s.as_str()).unwrap_or("unknown")) "/workflow/" (step.id)}
                             hx-trigger="change"
                             hx-target="this"
                             hx-swap="outerHTML"
@@ -150,7 +150,7 @@ impl WorkflowController {
                                 input type="text"
                                     value=(step.name)
                                     class="flex-1 bg-transparent text-sm text-white focus:outline-none focus:border-blue-500 border border-transparent rounded px-2 py-1"
-                                    hx-patch={"/jira/projects/" (ctx.params.get("project_id").unwrap()) "/workflow/" (step.id)}
+                                    hx-patch={"/jira/projects/" (ctx.params.get("project_id").map(|s| s.as_str()).unwrap_or("unknown")) "/workflow/" (step.id)}
                                     hx-trigger="change"
                                     hx-target="this"
                                     hx-swap="outerHTML"
@@ -161,14 +161,14 @@ impl WorkflowController {
                             }
                             div class="flex items-center gap-2" {
                                 button
-                                    hx-post={"/jira/projects/" (ctx.params.get("project_id").unwrap()) "/workflow/" (step.id) "/toggle"}
+                                    hx-post={"/jira/projects/" (ctx.params.get("project_id").map(|s| s.as_str()).unwrap_or("unknown")) "/workflow/" (step.id) "/toggle"}
                                     hx-target="closest div"
                                     hx-swap="outerHTML"
                                     class={@if step.is_completed { "text-green-400 hover:text-green-300" } @else { "text-gray-500 hover:text-gray-400" } } {
                                     @if step.is_completed { "⬜" } @else { "✅" }
                                 }
                                 button
-                                    hx-delete={"/jira/projects/" (ctx.params.get("project_id").unwrap()) "/workflow/" (step.id)}
+                                    hx-delete={"/jira/projects/" (ctx.params.get("project_id").map(|s| s.as_str()).unwrap_or("unknown")) "/workflow/" (step.id)}
                                     hx-target="closest div"
                                     hx-swap="outerHTML"
                                     hx-confirm={"Delete workflow step '" (step.name) "'?"}

@@ -1,4 +1,4 @@
-use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload};
+use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload, UpdateIssuePayload};
 use crate::security::caps::{IssueCreate, IssueEdit, ViewBoard};
 use crate::services::JqlParser;
 use crate::services::issue_service::IssueService;
@@ -259,8 +259,8 @@ impl IssueController {
         let jql_query = ctx
             .query
             .get("jql")
-            .cloned()
-            .map(|v| v.to_string())
+            .and_then(|v| v.first())
+            .map(|s| s.to_string())
             .unwrap_or_else(|| "project_id = 1".to_string());
 
         let is_htmx = ctx.req.has_header("hx-request");
@@ -320,6 +320,93 @@ impl IssueController {
                 },
             ),
             Err(e) => Response::bad_request(format!("Failed to update assignee: {}", e)),
+        }
+    }
+
+    /// DELETE /api/v1/issues/:id - Delete an issue
+    #[delete("/:id")]
+    #[cap(IssueEdit)]
+    pub async fn delete_issue(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+    ) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        let is_htmx = ctx.req.has_header("hx-request");
+
+        match issue_service.delete_issue(issue_id).await {
+            Ok(true) => {
+                if is_htmx {
+                    Response::ok("")
+                } else {
+                    Response::json(
+                        HttpStatus::Ok,
+                        &ApiResponse {
+                            success: true,
+                            data: "Issue deleted successfully",
+                        },
+                    )
+                }
+            }
+            Ok(false) => Response::not_found("Issue not found"),
+            Err(e) => Response::bad_request(format!("Failed to delete issue: {}", e)),
+        }
+    }
+
+    /// PATCH /api/v1/issues/:id - Update issue details
+    #[patch("/:id")]
+    #[cap(IssueEdit)]
+    pub async fn update_issue(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+    ) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        let payload = match ctx.json::<UpdateIssuePayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid issue payload"),
+        };
+
+        let is_htmx = ctx.req.has_header("hx-request");
+
+        match issue_service
+            .update_issue(
+                issue_id,
+                payload.summary.as_deref(),
+                payload.description.as_deref(),
+                payload.priority,
+                payload.issue_type.as_deref(),
+                payload.story_points,
+            )
+            .await
+        {
+            Ok(Some(issue)) => {
+                if is_htmx {
+                    let issue_html = html! {
+                        div class="bg-green-950/30 border border-green-800/60 rounded-lg p-3 flex items-center gap-2" {
+                            span class="text-green-400" { "✅" }
+                            span class="text-green-300 text-xs" { "Issue updated successfully" }
+                        }
+                    };
+                    Response::ok(issue_html.into_string())
+                } else {
+                    Response::json(
+                        HttpStatus::Ok,
+                        &ApiResponse {
+                            success: true,
+                            data: issue,
+                        },
+                    )
+                }
+            }
+            Ok(None) => Response::not_found("Issue not found"),
+            Err(e) => Response::bad_request(format!("Failed to update issue: {}", e)),
         }
     }
 }

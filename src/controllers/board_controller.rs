@@ -55,7 +55,7 @@ impl BoardController {
             None => return Response::bad_request("Invalid issue ID"),
         };
 
-        let target_step_id: i32 = match ctx.form.fields.get("step_id").and_then(|v| v.parse().ok()) {
+        let target_step_id: i32 = match ctx.form.fields.get("step_id").and_then(|v| v.first()).and_then(|s| s.parse::<i32>().ok()) {
             Some(step) => step,
             None => return Response::bad_request("Missing target step_id"),
         };

@@ -2,7 +2,7 @@ use crate::models::{IssueModel, issue};
 use gritshield::database::GritRepository;
 use gritshield::{GritAdmin, GritComponent};
 use sea_orm::FromQueryResult;
-use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, Set};
+use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, Set};
 
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
@@ -111,8 +111,62 @@ impl IssueRepository {
         issue_id: i32,
         sprint_id: Option<i32>,
     ) -> Result<issue::Model, DbErr> {
-        let sprint_value = sprint_id.map(|id| id.to_string()).unwrap_or_default();
-        self.update_column_value(issue_id, "sprint_id", sprint_value, None)
-            .await
+        use crate::models::issue::{self, Entity as Issue};
+
+        let issue = Issue::find_by_id(issue_id).one(&self.db).await?;
+
+        if let Some(i) = issue {
+            let mut active: issue::ActiveModel = i.into();
+            active.sprint_id = Set(sprint_id);
+            let updated = active.update(&self.db).await?;
+            Ok(updated)
+        } else {
+            Err(DbErr::RecordNotFound("Issue not found".to_string()))
+        }
+    }
+
+    pub async fn delete_issue(&self, issue_id: i32) -> Result<bool, DbErr> {
+        use crate::models::issue::Entity as Issue;
+
+        let result = Issue::delete_by_id(issue_id).exec(&self.db).await?;
+
+        Ok(result.rows_affected > 0)
+    }
+
+    pub async fn update_issue(
+        &self,
+        issue_id: i32,
+        summary: Option<&str>,
+        description: Option<&str>,
+        priority: Option<i32>,
+        issue_type: Option<&str>,
+        story_points: Option<i32>,
+    ) -> Result<Option<issue::Model>, DbErr> {
+        use crate::models::issue::{self, Entity as Issue};
+
+        let issue = Issue::find_by_id(issue_id).one(&self.db).await?;
+
+        if let Some(i) = issue {
+            let mut active: issue::ActiveModel = i.into();
+            if let Some(summary) = summary {
+                active.summary = Set(summary.to_string());
+            }
+            if let Some(description) = description {
+                active.description = Set(Some(description.to_string()));
+            }
+            if let Some(priority) = priority {
+                active.priority = Set(priority.to_string());
+            }
+            if let Some(issue_type) = issue_type {
+                active.issue_type = Set(issue_type.to_string());
+            }
+            if let Some(story_points) = story_points {
+                active.story_points = Set(Some(story_points));
+            }
+            let updated = active.update(&self.db).await?;
+            Ok(Some(updated))
+        } else {
+            Ok(None)
+        }
     }
 }

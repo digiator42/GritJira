@@ -64,7 +64,8 @@ impl BacklogController {
             .form
             .fields
             .get("sprint_id")
-            .and_then(|v| v.parse().ok())
+            .and_then(|v| v.first())
+            .and_then(|s| s.parse().ok())
         {
             Some(id) => id,
             None => return Response::bad_request("Missing or invalid sprint_id"),
@@ -88,7 +89,7 @@ impl BacklogController {
                         HttpStatus::Ok,
                         &ApiResponse {
                             success: true,
-                            data: "Sprint assigned successfully",
+                            data: updated_issue,
                         },
                     )
                 }

@@ -117,24 +117,41 @@ impl AuthController {
     }
 
     #[post("/register")]
-    pub async fn handle_register(ctx: RequestContext) -> Response {
+    pub async fn handle_register(
+        ctx: RequestContext,
+        user_repo: Arc<UserRepository>,
+    ) -> Response {
         let payload = match ctx.json::<RegisterPayload>().await {
             Ok(p) => p,
             Err(_) => return Response::bad_request("Invalid registration data"),
         };
 
-        // TODO: Persist user to DB via UserRepository
-        ctx.set_session_data("user_id", "102");
-        ctx.set_session_data("role", "Developer");
+        // Persist user to DB via UserRepository
+        match user_repo
+            .create(&payload.name, &payload.email, &payload.password, "Member")
+            .await
+        {
+            Ok(user) => {
+                ctx.set_session_data("user_id", &user.id.to_string());
+                ctx.set_session_data("role", &user.role);
 
-        Response::json(
-            HttpStatus::Created,
-            &AuthResponse {
-                success: true,
-                message: "Registration successful".into(),
-                user_id: Some(102),
-                role: Some("Developer".into()),
-            },
-        )
+                Response::json(
+                    HttpStatus::Created,
+                    &AuthResponse {
+                        success: true,
+                        message: "Registration successful".into(),
+                        user_id: Some(user.id),
+                        role: Some(user.role),
+                    },
+                )
+            }
+            Err(e) => {
+                if e.to_string().contains("duplicate") {
+                    Response::bad_request("User with this email or username already exists")
+                } else {
+                    Response::internal_error(format!("Failed to create user: {}", e))
+                }
+            }
+        }
     }
 }

@@ -278,7 +278,8 @@ impl ProjectController {
         let query = ctx
             .query
             .get("q")
-            .map(|v| v.to_string())
+            .and_then(|v| v.first())
+            .map(|s| s.to_string())
             .unwrap_or_default();
 
         if query.is_empty() {

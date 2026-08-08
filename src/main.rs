@@ -28,6 +28,7 @@ pub async fn handle_not_found(ctx: RequestContext) -> Response {
     let retry_after = ctx
         .headers
         .get("retry-after")
+        .and_then(|v| v.first())
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(60);
 
@@ -64,6 +65,9 @@ async fn main() {
             Some("/jira/login"),
         ))
         .mount_db(shared_db.clone());
+
+    let dot_schema = AutoWire::export_dot();
+    println!("[DI CONTAINER] Dependency Injection Graph:\n{}", dot_schema);
 
     GritShield::build().router(router).launch();
 }
