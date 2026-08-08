@@ -13,35 +13,35 @@ pub fn create_issue_modal(
     html! {
         // ─── MODAL BACKDROP ───
         div id="create-issue-modal"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in p-4"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in p-4"
             onclick="if(event.target === this) this.remove()" {
 
             // ─── MODAL CONTAINER ───
-            div class="bg-gray-900 border border-gray-800/60 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl animate-slide-up overflow-hidden"
+            div class="bg-gradient-to-br from-gray-900/95 to-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl shadow-black/50 animate-slide-up overflow-hidden"
                 onclick="event.stopPropagation()" {
 
                 // ─── HEADER ───
-                div class="flex items-center justify-between px-6 py-4 border-b border-gray-800/60 bg-gray-900/50 flex-shrink-0" {
+                div class="flex items-center justify-between px-6 py-5 border-b border-gray-800/60 bg-gradient-to-r from-blue-900/20 to-transparent flex-shrink-0" {
                     div class="flex items-center gap-3" {
-                        div class="w-8 h-8 bg-blue-600/20 rounded-lg flex items-center justify-center" {
-                            span class="text-blue-400 text-sm font-bold" { "+" }
+                        div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30" {
+                            span class="text-white text-lg font-bold" { "+" }
                         }
                         div {
-                            h3 class="text-sm font-bold text-gray-100 font-mono tracking-wide" { "Create Issue" }
-                            p class="text-xxs text-gray-500 font-mono" { (format!("{} Project", project_key_display)) }
+                            h3 class="text-base font-bold text-white font-mono tracking-wide" { "Create Issue" }
+                            p class="text-xs text-gray-400 font-mono" { (format!("{} Project", project_key_display)) }
                         }
                     }
                     button
                         onclick="document.getElementById('create-issue-modal').remove()"
-                        class="text-gray-500 hover:text-gray-300 transition p-1 rounded hover:bg-gray-800/50" {
+                        class="text-gray-400 hover:text-white transition p-2 rounded-lg hover:bg-gray-800/50" {
                         span class="text-sm" { "✕" }
                     }
                 }
 
                 // ─── ERROR DISPLAY ───
                 div id="create-issue-error" class="hidden px-6 pt-4" {
-                    div class="bg-red-950/30 border border-red-800/60 rounded-lg p-3 text-center" {
-                        p id="create-issue-error-message" class="text-red-300 text-sm" {}
+                    div class="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-center" {
+                        p id="create-issue-error-message" class="text-red-400 text-sm font-medium" {}
                     }
                 }
 
@@ -58,8 +58,8 @@ pub fn create_issue_modal(
                     input type="hidden" name="project_id" value=(project_id);
 
                     // ─── SUMMARY ───
-                    div class="space-y-1.5" {
-                        label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
+                    div class="space-y-2" {
+                        label class="block text-xs font-mono font-semibold uppercase tracking-wider text-gray-400" {
                             "Summary"
                             span class="text-red-400 ml-1" { "*" }
                         }
@@ -68,18 +68,18 @@ pub fn create_issue_modal(
                             required
                             placeholder="What needs to be done?"
                             autofocus
-                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition" {}
+                            class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200" {}
                     }
 
                     // ─── DESCRIPTION ───
-                    div class="space-y-1.5" {
-                        label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
+                    div class="space-y-2" {
+                        label class="block text-xs font-mono font-semibold uppercase tracking-wider text-gray-400" {
                             "Description"
                         }
                         textarea name="description"
                             rows="4"
                             placeholder="Describe the issue in detail..."
-                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition resize-y" {}
+                            class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 resize-y" {}
                     }
 
                     // ─── GRID: TYPE, PRIORITY ───
@@ -92,7 +92,7 @@ pub fn create_issue_modal(
                             }
                             select name="issue_type"
                                 required
-                                class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
+                                class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none cursor-pointer" {
                                 option value="task" selected { "📋 Task" }
                                 option value="bug" { "🐛 Bug" }
                                 option value="story" { "📖 Story" }
@@ -108,7 +108,7 @@ pub fn create_issue_modal(
                             }
                             select name="priority"
                                 required
-                                class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
+                                class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none cursor-pointer" {
                                 option value="1" { "🔴 Highest (P1)" }
                                 option value="2" { "🟠 High (P2)" }
                                 option value="3" selected { "🟡 Medium (P3)" }
@@ -126,7 +126,7 @@ pub fn create_issue_modal(
                         }
                         select name="sprint_id"
                             required
-                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
+                            class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none cursor-pointer" {
                             @if sprints.is_empty() {
                                 option value="" selected { "No sprints available - create one first" }
                             } @else {
@@ -148,7 +148,7 @@ pub fn create_issue_modal(
                             "Assignee"
                         }
                         select name="assignee_id"
-                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition appearance-none cursor-pointer" {
+                            class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 appearance-none cursor-pointer" {
                             option value="" { "Unassigned" }
                             option value="1" { "Alex Developer" }
                             option value="2" { "Sarah Manager" }
@@ -157,28 +157,28 @@ pub fn create_issue_modal(
                     }
 
                     // ─── LABELS ───
-                    div class="space-y-1.5" {
-                        label class="block text-xxs font-mono font-semibold uppercase tracking-wider text-gray-400" {
+                    div class="space-y-2" {
+                        label class="block text-xs font-mono font-semibold uppercase tracking-wider text-gray-400" {
                             "Labels"
                         }
                         input type="text"
                             name="labels"
                             placeholder="frontend, bugfix, high-impact"
-                            class="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-2.5 text-sm text-gray-100 placeholder-gray-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition";
+                            class="w-full bg-gray-950/50 border border-gray-800/80 rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all duration-200";
                     }
 
                     // ─── RESULT CONTAINER (for success/error messages) ───
                     div id="create-issue-result" {}
 
                     // ─── FOOTER ───
-                    div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-800/60 bg-gray-900/30 -mx-6 px-6 py-4 flex-shrink-0" {
+                    div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-800/60 bg-gradient-to-r from-gray-900/50 to-transparent -mx-6 px-6 py-4 flex-shrink-0" {
                         button type="button"
                             onclick="document.getElementById('create-issue-modal').remove()"
-                            class="px-4 py-2 text-sm font-mono text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 rounded-lg transition" {
+                            class="px-5 py-2.5 text-sm font-mono text-gray-400 hover:text-gray-200 hover:bg-gray-800/50 rounded-xl transition-all duration-200" {
                             "Cancel"
                         }
                         button type="submit"
-                            class="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-mono text-sm font-semibold rounded-lg transition flex items-center gap-2 shadow-lg shadow-blue-950/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-mono text-sm font-semibold rounded-xl transition-all duration-200 flex items-center gap-2 shadow-lg shadow-blue-900/50 hover:shadow-xl hover:shadow-blue-900/60 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                             id="create-submit-btn" {
                             span class="inline" { "Create Issue" }
                             span class="htmx-indicator inline animate-spin" { "⟳" }

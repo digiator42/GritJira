@@ -10,38 +10,74 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
     }
 
     let side_bar = html! {
-        aside class="w-64 bg-gray-900/60 border-r border-gray-800/80 flex flex-col flex-shrink-0" {
-            // Brand Header
-            div class="p-4 border-b border-gray-800/80 flex items-center justify-between" {
-                div class="flex items-center space-x-2" {
-                    span class="text-xl" { "⚡" }
-                    span class="font-bold text-sm tracking-wide text-white font-mono" { "GritJira" }
+        aside class="w-64 bg-gradient-to-b from-gray-900/95 to-gray-950/95 backdrop-blur-xl border-r border-gray-800/60 flex flex-col flex-shrink-0" {
+            // Brand Header with enhanced styling
+            div class="p-5 border-b border-gray-800/60 flex items-center justify-between bg-gradient-to-r from-blue-900/20 to-transparent" {
+                div class="flex items-center space-x-3" {
+                    div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-500/30" {
+                        span class="text-white text-sm font-bold" { "⚡" }
+                    }
+                    div {
+                        span class="font-bold text-sm tracking-wide text-white font-mono" { "GritJira" }
+                        div class="flex items-center gap-1 mt-0.5" {
+                            span class="text-xxs bg-blue-500/20 text-blue-400 border border-blue-500/30 font-mono px-1.5 py-0.5 rounded" { "v0.1.0" }
+                            span class="text-xxs text-emerald-400" { "●" }
+                        }
+                    }
                 }
-                span class="text-xxs bg-blue-950 text-blue-400 border border-blue-800/60 font-mono px-2 py-0.5 rounded" { "v0.1.0" }
+                // Notification Bell
+                (crate::web::components::notification::notification_bell(3))
             }
 
-            // Project Selector (moved to top of nav)
-            div class="p-3 border-b border-gray-800/80" {
-                div class="text-xxs text-gray-500 uppercase tracking-wider mb-2" { "Project" }
+            // Project Selector with enhanced styling
+            div class="p-4 border-b border-gray-800/60 bg-gray-950/30" {
+                div class="flex items-center justify-between mb-2" {
+                    span class="text-xxs text-gray-500 uppercase tracking-wider font-semibold" { "Project" }
+                    button 
+                        hx-get="/jira/projects/new-modal"
+                        hx-target="#modals-container"
+                        hx-swap="innerHTML"
+                        class="text-gray-400 hover:text-white hover:bg-gray-800/50 p-1 rounded transition-colors" {
+                        span class="text-sm" { "+" }
+                    }
+                }
                 div id="project-selector-container"
                     hx-get="/jira/project-selector"
                     hx-trigger="load"
                     hx-swap="innerHTML" {
-                    div class="text-gray-500 text-xs animate-pulse" { "Loading projects..." }
+                    div class="flex items-center gap-2 text-gray-500 text-xs animate-pulse" {
+                        (crate::web::components::loading::spinner(Some("sm")))
+                        span { "Loading projects..." }
+                    }
                 }
             }
 
-            // Navigation Items
+            // Navigation Items with enhanced styling
             nav class="flex-1 p-3 space-y-1 overflow-y-auto font-mono text-xs" {
-
+                a href="/jira/dashboard"
+                    hx-get="/jira/dashboard"
+                    hx-target="#main-content"
+                    hx-indicator="body"
+                    hx-push-url="true"
+                    class="group flex items-center gap-3 p-2.5 rounded-lg text-gray-300 hover:bg-gradient-to-r hover:from-blue-900/30 hover:to-transparent hover:text-white transition-all duration-200 border border-transparent hover:border-blue-500/20" {
+                    span class="text-lg group-hover:scale-110 transition-transform" { "📊" }
+                    span class="font-medium" { "Dashboard" }
+                    div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" {
+                        span class="text-gray-500 text-xxs" { "→" }
+                    }
+                }
 
                 a href="/jira/board"
                     hx-get="/jira/board"
                     hx-target="#main-content"
                     hx-indicator="body"
                     hx-push-url="true"
-                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
-                    "📋 Sprint Board"
+                    class="group flex items-center gap-3 p-2.5 rounded-lg text-gray-300 hover:bg-gradient-to-r hover:from-emerald-900/30 hover:to-transparent hover:text-white transition-all duration-200 border border-transparent hover:border-emerald-500/20" {
+                    span class="text-lg group-hover:scale-110 transition-transform" { "📋" }
+                    span class="font-medium" { "Sprint Board" }
+                    div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" {
+                        span class="text-gray-500 text-xxs" { "→" }
+                    }
                 }
 
                 a href="/jira/backlog"
@@ -49,58 +85,78 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                     hx-target="#main-content"
                     hx-indicator="body"
                     hx-push-url="true"
-                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
-                    "📦 Backlog"
+                    class="group flex items-center gap-3 p-2.5 rounded-lg text-gray-300 hover:bg-gradient-to-r hover:from-purple-900/30 hover:to-transparent hover:text-white transition-all duration-200 border border-transparent hover:border-purple-500/20" {
+                    span class="text-lg group-hover:scale-110 transition-transform" { "📦" }
+                    span class="font-medium" { "Backlog" }
+                    div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" {
+                        span class="text-gray-500 text-xxs" { "→" }
+                    }
                 }
 
                 a href="/jira/projects"
                     hx-get="/jira/projects"
                     hx-target="#main-content"
                     hx-push-url="true"
-                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
-                        "📁 Projects"
+                    class="group flex items-center gap-3 p-2.5 rounded-lg text-gray-300 hover:bg-gradient-to-r hover:from-amber-900/30 hover:to-transparent hover:text-white transition-all duration-200 border border-transparent hover:border-amber-500/20" {
+                        span class="text-lg group-hover:scale-110 transition-transform" { "📁" }
+                        span class="font-medium" { "Projects" }
+                        div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" {
+                            span class="text-gray-500 text-xxs" { "→" }
+                        }
                     }
 
                 a href="/jira/search"
                     hx-get="/jira/search"
                     hx-target="#main-content"
                     hx-push-url="true"
-                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-300 hover:bg-gray-800/70 hover:text-white transition" {
-                        "🔍 Search"
+                    class="group flex items-center gap-3 p-2.5 rounded-lg text-gray-300 hover:bg-gradient-to-r hover:from-pink-900/30 hover:to-transparent hover:text-white transition-all duration-200 border border-transparent hover:border-pink-500/20" {
+                        span class="text-lg group-hover:scale-110 transition-transform" { "🔍" }
+                        span class="font-medium" { "Search" }
+                        div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" {
+                            span class="text-gray-500 text-xxs" { "→" }
+                        }
                     }
                 
-                // Settings divider
-                div class="border-t border-gray-800/60 my-2" {}
+                // Settings divider with styling
+                div class="border-t border-gray-800/60 my-3 pt-3" {
+                    span class="text-xxs text-gray-600 uppercase tracking-wider font-semibold" { "System" }
+                }
 
                 a href="/jira/settings"
                     hx-get="/jira/settings"
                     hx-target="#main-content"
                     hx-push-url="true"
-                    class="flex items-center gap-2.5 p-2 rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-white transition" {
-                    "⚙️ Settings"
+                    class="group flex items-center gap-3 p-2.5 rounded-lg text-gray-400 hover:bg-gradient-to-r hover:from-gray-800/50 hover:to-transparent hover:text-white transition-all duration-200" {
+                    span class="text-lg group-hover:scale-110 transition-transform" { "⚙️" }
+                    span class="font-medium" { "Settings" }
+                    div class="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" {
+                        span class="text-gray-500 text-xxs" { "→" }
+                    }
                 }
             }
 
-            // Footer Action
-            div class="p-3 border-t border-gray-800/80" {
+            // Footer Action with enhanced styling
+            div class="p-4 border-t border-gray-800/60 bg-gradient-to-t from-blue-900/10 to-transparent" {
                 button
                     hx-get="/jira/issues/new-modal"
                     hx-target="#modals-container"
-                    // hx-swap="innerHTML"
                     hx-swap="outerHTML"
-                    class="w-full bg-blue-600 hover:bg-blue-500 text-white font-mono font-semibold text-xs py-2 px-3 rounded-lg transition duration-150 flex items-center justify-center gap-2 shadow-lg shadow-blue-950/50" {
-                    span { "+" }
+                    class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-mono font-semibold text-xs py-2.5 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50 hover:shadow-xl hover:shadow-blue-900/60 hover:scale-[1.02] active:scale-[0.98]" {
+                    span class="text-lg" { "+" }
                     span { "Create Issue" }
                 }
             }
         }
 
         // --- MAIN VIEWPORT ---
-        main class="flex-1 overflow-y-auto flex flex-col min-w-0 bg-gray-950" {
+        main class="flex-1 overflow-y-auto flex flex-col min-w-0 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950" {
             div id="main-content" class="flex-1 flex flex-col min-h-0" {
                 (content)
             }
         }
+
+        // Toast Container
+        (crate::web::components::notification::toast_container())
     };
 
     let shell = html! {
@@ -130,11 +186,40 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                 (maud::PreEscaped(r#"
                     document.addEventListener("DOMContentLoaded", function () {
                         initKanbanSortables();
+                        initLoadingStates();
                     });
 
                     document.body.addEventListener("htmx:afterSettle", function () {
                         initKanbanSortables();
                     });
+
+                    // Show loading indicator
+                    document.body.addEventListener("htmx:beforeRequest", function(evt) {
+                        const target = evt.detail.target;
+                        if (target && !target.classList.contains('htmx-indicator')) {
+                            const loader = document.createElement('div');
+                            loader.className = 'htmx-loading-overlay';
+                            loader.innerHTML = '<div class="flex items-center justify-center gap-2 text-gray-400 text-sm"><svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Loading...</span></div>';
+                            loader.style.cssText = 'position: absolute; inset: 0; background: rgba(3, 7, 18, 0.8); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 10; border-radius: inherit;';
+                            target.style.position = 'relative';
+                            target.appendChild(loader);
+                        }
+                    });
+
+                    // Hide loading indicator
+                    document.body.addEventListener("htmx:afterRequest", function(evt) {
+                        const target = evt.detail.target;
+                        if (target) {
+                            const loader = target.querySelector('.htmx-loading-overlay');
+                            if (loader) loader.remove();
+                        }
+                    });
+
+                    function initLoadingStates() {
+                        document.querySelectorAll('button, a, input, select').forEach(el => {
+                            el.style.transition = 'all 0.2s ease';
+                        });
+                    }
 
                     function initKanbanSortables() {
                         const columns = document.querySelectorAll('.sortable-column');
@@ -145,9 +230,10 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
 
                             Sortable.create(column, {
                                 group: 'kanban-board',
-                                animation: 150,
-                                ghostClass: 'opacity-40',
-                                dragClass: 'shadow-2xl',
+                                animation: 200,
+                                ghostClass: 'opacity-40 scale-95',
+                                dragClass: 'shadow-2xl rotate-3',
+                                chosenClass: 'scale-105',
                                 
                                 onEnd: function (evt) {
                                     const itemEl = evt.item;
@@ -159,14 +245,15 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                                     if (!issueId || !targetStepId) return;
                                     
                                     itemEl.style.opacity = '0.5';
+                                    itemEl.style.transform = 'scale(0.95)';
 
                                     htmx.ajax('POST', `/api/v1/board/issues/${issueId}/move`, {
                                         values: { step_id: targetStepId },
                                         target: itemEl,
                                         swap: 'outerHTML',
                                         onError: function() {
-                                            // Revert opacity on error
                                             itemEl.style.opacity = '1';
+                                            itemEl.style.transform = 'scale(1)';
                                         }
                                     });
                                 }
@@ -225,12 +312,20 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                         .htmx-request .htmx-indicator {
                             display: block !important;
                         }
-                        /* Already in your shell.rs */
-                        .htmx-request #create-project-submit-btn span.inline {
-                            display: none;
+
+                        /* Toast animations */
+                        @keyframes slide-in {
+                            from {
+                                transform: translateX(100%);
+                                opacity: 0;
+                            }
+                            to {
+                                transform: translateX(0);
+                                opacity: 1;
+                            }
                         }
-                        .htmx-request #create-project-submit-btn span.htmx-indicator {
-                            display: inline !important;
+                        .animate-slide-in {
+                            animation: slide-in 0.3s ease-out;
                         }
                         @keyframes loading-bar-move {
                             0% { background-position: 100% 0%; }
