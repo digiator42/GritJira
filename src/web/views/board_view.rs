@@ -59,7 +59,7 @@ pub fn kanban_board_view(
 
                         // Drop Target Container (HTMX + SortableJS)
                         div id={(format!("col-{}", column.id))}
-                            class="flex-1 overflow-y-auto p-3 space-y-3 sortable-column"
+                            class="flex-1 overflow-y-auto p-3 space-y-3 sortable-column min-h-[100px] transition-colors duration-200"
                             data-column-id={(column.id)} {
                             @if issues.is_empty() {
                                 div class="text-center py-8 text-gray-600 text-xs border-2 border-dashed border-gray-800/50 rounded-xl" {

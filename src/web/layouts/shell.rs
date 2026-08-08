@@ -236,20 +236,43 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                             }
 
                             column._sortable = Sortable.create(column, {
-                                group: 'kanban-board',
-                                animation: 200,
-                                ghostClass: 'opacity-40 scale-95',
-                                dragClass: 'shadow-2xl rotate-3',
-                                chosenClass: 'scale-105',
+                                group: {
+                                    name: 'kanban-board',
+                                    pull: true,
+                                    put: true
+                                },
+                                animation: 150,
+                                ghostClass: 'sortable-ghost',
+                                dragClass: 'sortable-drag',
+                                chosenClass: 'sortable-chosen',
+                                fallbackClass: 'sortable-fallback',
+                                forceFallback: false,
+                                swapThreshold: 0.65,
+
+                                onStart: function (evt) {
+                                    // Prevent click handlers during drag
+                                    evt.item.classList.add('is-dragging');
+                                    document.body.classList.add('is-dragging');
+                                },
 
                                 onEnd: function (evt) {
                                     const itemEl = evt.item;
                                     const targetColumn = evt.to;
+                                    const sourceColumn = evt.from;
+
+                                    // Remove drag classes
+                                    itemEl.classList.remove('is-dragging');
+                                    document.body.classList.remove('is-dragging');
 
                                     const issueId = itemEl.dataset.issueId;
                                     const targetStepId = targetColumn.dataset.columnId;
 
-                                    if (!issueId || !targetStepId) return;
+                                    // Only make API call if column changed
+                                    if (!issueId || !targetStepId || sourceColumn === targetColumn) {
+                                        return;
+                                    }
+
+                                    console.log('Moving issue', issueId, 'to step', targetStepId);
 
                                     itemEl.style.opacity = '0.5';
                                     itemEl.style.transform = 'scale(0.95)';
@@ -259,6 +282,12 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                                         target: itemEl,
                                         swap: 'outerHTML',
                                         onError: function() {
+                                            itemEl.style.opacity = '1';
+                                            itemEl.style.transform = 'scale(1)';
+                                            // Revert the move visually
+                                            sourceColumn.appendChild(itemEl);
+                                        },
+                                        onSuccess: function() {
                                             itemEl.style.opacity = '1';
                                             itemEl.style.transform = 'scale(1)';
                                         }
@@ -344,6 +373,41 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                         ::-webkit-scrollbar-track { background: #090d16; }
                         ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 4px; }
                         ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+                        /* SortableJS drag feedback styles */
+                        .sortable-ghost {
+                            opacity: 0.4;
+                            background: rgba(59, 130, 246, 0.1);
+                            border: 2px dashed #3b82f6;
+                            transform: scale(0.95);
+                        }
+
+                        .sortable-drag {
+                            opacity: 1;
+                            transform: scale(1.05) rotate(2deg);
+                            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3);
+                            cursor: grabbing !important;
+                        }
+
+                        .sortable-chosen {
+                            cursor: grabbing !important;
+                        }
+
+                        .sortable-fallback {
+                            opacity: 0.8;
+                            background: #1f2937;
+                        }
+
+                        /* Prevent click during drag */
+                        .is-dragging {
+                            pointer-events: none !important;
+                        }
+
+                        /* Drop placeholder visual feedback */
+                        .sortable-column.sortable-droppable {
+                            background: rgba(59, 130, 246, 0.05);
+                            border-color: rgba(59, 130, 246, 0.3);
+                        }
                     "#))
                 }
             }

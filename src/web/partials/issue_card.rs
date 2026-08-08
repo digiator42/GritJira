@@ -13,9 +13,7 @@ pub fn issue_card(issue: &IssueModel) -> Markup {
         div id={(format!("issue-{}", issue.id))}
             class={"group relative bg-gradient-to-br from-gray-900/90 to-gray-950/90 backdrop-blur-sm border border-gray-800/80 p-4 rounded-xl shadow-sm hover:shadow-xl hover:shadow-gray-900/30 hover:border-gray-700/80 cursor-grab active:cursor-grabbing transition-all duration-300 hover:scale-[1.02] hover:-translate-y-0.5 border-l-4 " (priority_color)}
             data-issue-id={(issue.id)}
-            hx-get={(format!("/jira/issues/{}/detail-modal", issue.id))}
-            hx-target="#modals-container"
-            hx-swap="innerHTML" {
+            onclick={"if (!this.classList.contains('is-dragging')) { htmx.ajax('GET', '/jira/issues/" (issue.id) "/detail-modal', {target: '#modals-container', swap: 'innerHTML'}) }"} {
 
             // Priority indicator bar on the left
             div class="absolute left-0 top-0 bottom-0 w-1 rounded-l-xl opacity-0 group-hover:opacity-100 transition-opacity" {
