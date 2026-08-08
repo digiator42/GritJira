@@ -19,7 +19,7 @@ use crate::web::views::search_view::search_page;
 use crate::web::views::settings_view::settings_view;
 use crate::web::views::user_management_view::user_management_view;
 use crate::web::views::workflow_management_view::workflow_management_view;
-use crate::web::views::{backlog_view::backlog_view, board_view::kanban_board_view};
+use crate::web::views::{backlog_view::backlog_view, board_view::kanban_board_view, dashboard_view::dashboard_view};
 use chrono::NaiveDateTime;
 use gritshield::database::GritRepository;
 use gritshield::http::response::HttpStatus;
@@ -219,6 +219,12 @@ impl WebController {
     #[get("/login")]
     pub async fn login_page(ctx: RequestContext) -> Response {
         login_page_view().render(ctx, "Login Page")
+    }
+
+    /// GET /jira/dashboard
+    #[get("/dashboard")]
+    pub async fn dashboard_page(ctx: RequestContext) -> Response {
+        dashboard_view().render(ctx, "Dashboard")
     }
 
     /// GET /jira/backlog - Update to accept project_id

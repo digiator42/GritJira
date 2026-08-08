@@ -193,6 +193,10 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                         initKanbanSortables();
                     });
 
+                    document.body.addEventListener("htmx:afterSwap", function () {
+                        initKanbanSortables();
+                    });
+
                     // Show loading indicator
                     document.body.addEventListener("htmx:beforeRequest", function(evt) {
                         const target = evt.detail.target;
@@ -225,25 +229,28 @@ pub fn shell(ctx: RequestContext, title: &str, content: Markup, is_htmx: bool) -
                         const columns = document.querySelectorAll('.sortable-column');
 
                         columns.forEach((column) => {
-                            if (column.dataset.sortableInitialized) return;
-                            column.dataset.sortableInitialized = "true";
+                            // Destroy existing sortable instance if it exists
+                            if (column._sortable) {
+                                column._sortable.destroy();
+                                column._sortable = null;
+                            }
 
-                            Sortable.create(column, {
+                            column._sortable = Sortable.create(column, {
                                 group: 'kanban-board',
                                 animation: 200,
                                 ghostClass: 'opacity-40 scale-95',
                                 dragClass: 'shadow-2xl rotate-3',
                                 chosenClass: 'scale-105',
-                                
+
                                 onEnd: function (evt) {
                                     const itemEl = evt.item;
                                     const targetColumn = evt.to;
-                                    
+
                                     const issueId = itemEl.dataset.issueId;
                                     const targetStepId = targetColumn.dataset.columnId;
 
                                     if (!issueId || !targetStepId) return;
-                                    
+
                                     itemEl.style.opacity = '0.5';
                                     itemEl.style.transform = 'scale(0.95)';
 
