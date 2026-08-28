@@ -3,6 +3,7 @@ use gritshield::{http::response::HttpStatus, prelude::*};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+use crate::repositories::workflow::WorkflowRepository;
 use crate::security::caps::{ProjectAdmin, ViewBoard};
 use crate::services::project_service::ProjectService;
 
@@ -23,6 +24,18 @@ pub struct CreateProjectPayload {
 pub struct UpdateProjectPayload {
     pub name: Option<String>,
     pub description: Option<String>,
+}
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct CreateWorkflowStepPayload {
+    #[serde(default)]
+    pub name: Option<String>,
+}
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct UpdateWorkflowStepPayload {
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 pub struct ProjectController;
@@ -95,79 +108,22 @@ impl ProjectController {
             return Response::bad_request("Project key must be alphanumeric or contain hyphens");
         }
 
-        let is_htmx = ctx.req.has_header("hx-request");
-
         match project_service
             .create_project(&payload.key, &payload.name, payload.description.as_deref())
             .await
         {
-            Ok(project) => {
-                if is_htmx {
-                    // For HTMX, return a success message and redirect to projects page
-                    let success_html = html! {
-                        div class="bg-green-950/30 border border-green-800/60 rounded-lg p-6 text-center" {
-                            div class="text-green-400 text-4xl mb-3" { "✅" }
-                            h3 class="text-lg font-bold text-white mb-1" { "Project Created!" }
-                            p class="text-gray-300 text-sm" {
-                                (format!("{} ({}) has been created successfully.", project.name, project.key))
-                            }
-                            p class="text-gray-500 text-xxs mt-2" {
-                                "Default workflow steps have been added automatically."
-                            }
-                            div class="mt-4 flex items-center justify-center gap-3" {
-                                button
-                                    hx-get="/jira/projects"
-                                    hx-target="#main-content"
-                                    hx-swap="innerHTML"
-                                    hx-push-url="true"
-                                    class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-xs transition" {
-                                    "View All Projects"
-                                }
-                                button
-                                    hx-get={"/jira/board?project_id=" (project.id)}
-                                    hx-target="#main-content"
-                                    hx-swap="innerHTML"
-                                    hx-push-url="true"
-                                    class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-lg text-xs transition" {
-                                    "View Board"
-                                }
-                            }
-                        }
-                    };
-                    Response::ok(success_html.into_string())
-                } else {
-                    Response::json(
-                        HttpStatus::Created,
-                        &ApiResponse {
-                            success: true,
-                            data: project,
-                        },
-                    )
-                }
-            }
+            Ok(project) => Response::json(
+                HttpStatus::Created,
+                &ApiResponse {
+                    success: true,
+                    data: project,
+                },
+            ),
             Err(e) => {
-                if is_htmx {
-                    let error_html = html! {
-                        div class="bg-red-950/30 border border-red-800/60 rounded-lg p-4 text-center" {
-                            div class="text-red-400 text-2xl mb-2" { "❌" }
-                            p class="text-red-300 text-sm" { "Failed to create project" }
-                            p class="text-gray-400 text-xxs mt-1" { (e.to_string()) }
-                            button
-                                hx-get="/jira/projects"
-                                hx-target="#main-content"
-                                hx-swap="innerHTML"
-                                class="mt-3 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-xs transition" {
-                                "Back to Projects"
-                            }
-                        }
-                    };
-                    Response::bad_request(error_html.into_string())
+                if e.to_string().contains("duplicate") {
+                    Response::bad_request("Project key already exists")
                 } else {
-                    if e.to_string().contains("duplicate") {
-                        Response::bad_request("Project key already exists")
-                    } else {
-                        Response::internal_error(format!("Failed to create project: {}", e))
-                    }
+                    Response::internal_error(format!("Failed to create project: {}", e))
                 }
             }
         }
@@ -295,6 +251,193 @@ impl ProjectController {
                 },
             ),
             Err(e) => Response::internal_error(format!("Failed to search projects: {}", e)),
+        }
+    }
+
+    // ======================================================
+    // Workflow API (per project)
+    // ======================================================
+
+    /// GET /api/v1/projects/:id/workflow - List workflow steps (ordered by position)
+    #[get("/:id/workflow")]
+    #[cap(ViewBoard)]
+    pub async fn get_workflow(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+    ) -> Response {
+        let project_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
+
+        match workflow_repo.find_steps_by_project(project_id).await {
+            Ok(steps) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: steps,
+                },
+            ),
+            Err(e) => Response::internal_error(format!("Failed to fetch workflow: {}", e)),
+        }
+    }
+
+    /// POST /api/v1/projects/:id/workflow/steps - Add a workflow step (appended)
+    #[post("/:id/workflow/steps")]
+    #[cap(ProjectAdmin)]
+    pub async fn add_workflow_step(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+    ) -> Response {
+        let project_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
+
+        let payload = match ctx.json::<CreateWorkflowStepPayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid workflow step payload"),
+        };
+
+        let name = payload.name.as_deref().unwrap_or("New Step");
+
+        match workflow_repo.create_step_with_name(project_id, name).await {
+            Ok(step) => Response::json(
+                HttpStatus::Created,
+                &ApiResponse {
+                    success: true,
+                    data: step,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Failed to add step: {}", e)),
+        }
+    }
+
+    /// POST /api/v1/projects/:id/workflow/default - Seed the default workflow
+    /// columns (To Do / In Progress / In Review / Done) if the project has none.
+    #[post("/:id/workflow/default")]
+    #[cap(ProjectAdmin)]
+    pub async fn ensure_default_workflow(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+        project_service: Arc<ProjectService>,
+    ) -> Response {
+        let project_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
+
+        let existing = match workflow_repo.find_steps_by_project(project_id).await {
+            Ok(steps) => steps,
+            Err(e) => return Response::internal_error(format!("Failed to fetch workflow: {}", e)),
+        };
+
+        if !existing.is_empty() {
+            return Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: existing,
+                },
+            );
+        }
+
+        match project_service
+            .create_default_workflow_steps(project_id)
+            .await
+        {
+            Ok(()) => match workflow_repo.find_steps_by_project(project_id).await {
+                Ok(steps) => Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: steps,
+                    },
+                ),
+                Err(e) => Response::internal_error(format!("Failed to fetch workflow: {}", e)),
+            },
+            Err(e) => Response::bad_request(format!("Failed to create default workflow: {}", e)),
+        }
+    }
+
+    /// PATCH /api/v1/projects/:project_id/workflow/:step_id - Rename a workflow step
+    #[patch("/:project_id/workflow/:step_id")]
+    #[cap(ProjectAdmin)]
+    pub async fn update_workflow_step(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+    ) -> Response {
+        let step_id: i32 = match ctx.params.get("step_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid step ID"),
+        };
+
+        let payload = match ctx.json::<UpdateWorkflowStepPayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid workflow step payload"),
+        };
+
+        match workflow_repo.update_step(step_id, payload.name.as_deref()).await {
+            Ok(Some(step)) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: step,
+                },
+            ),
+            Ok(None) => Response::not_found("Step not found"),
+            Err(e) => Response::bad_request(format!("Failed to update step: {}", e)),
+        }
+    }
+
+    /// POST /api/v1/projects/:project_id/workflow/:step_id/toggle - Toggle
+    /// the "completed" flag of a workflow step
+    #[post("/:project_id/workflow/:step_id/toggle")]
+    #[cap(ProjectAdmin)]
+    pub async fn toggle_workflow_step(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+    ) -> Response {
+        let step_id: i32 = match ctx.params.get("step_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid step ID"),
+        };
+
+        match workflow_repo.toggle_completed(step_id).await {
+            Ok(Some(step)) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: step,
+                },
+            ),
+            Ok(None) => Response::not_found("Step not found"),
+            Err(e) => Response::bad_request(format!("Failed to toggle step: {}", e)),
+        }
+    }
+
+    /// DELETE /api/v1/projects/:project_id/workflow/:step_id - Delete a workflow step
+    #[delete("/:project_id/workflow/:step_id")]
+    #[cap(ProjectAdmin)]
+    pub async fn delete_workflow_step(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+    ) -> Response {
+        let step_id: i32 = match ctx.params.get("step_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid step ID"),
+        };
+
+        match workflow_repo.delete_step(step_id).await {
+            Ok(true) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: "Workflow step deleted",
+                },
+            ),
+            Ok(false) => Response::not_found("Step not found"),
+            Err(e) => Response::bad_request(format!("Failed to delete step: {}", e)),
         }
     }
 }

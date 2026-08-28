@@ -1,6 +1,0 @@
-pub mod badge;
-pub mod button;
-pub mod card;
-pub mod input;
-pub mod loading;
-pub mod notification;

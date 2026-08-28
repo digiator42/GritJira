@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background-color: #0f1216;
+  color: #d9e0e8;
+}
+
+body {
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3139 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3139;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@layer components {
+  .input {
+    @apply w-full rounded-md border border-jira-border bg-jira-panel px-3 py-2 text-sm text-jira-text placeholder-jira-faint focus:border-jira-blue focus:outline-none;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-jira-blue text-white hover:bg-jira-blue-hover;
+  }
+  .btn-secondary {
+    @apply btn border border-jira-border bg-jira-panel text-jira-text hover:bg-[#1d232b];
+  }
+  .btn-danger {
+    @apply btn border border-red-900/60 bg-red-950/40 text-red-300 hover:bg-red-950/70;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium text-jira-muted;
+  }
+  .panel {
+    @apply rounded-lg border border-jira-border bg-jira-panel;
+  }
+  .th {
+    @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-jira-muted;
+  }
+  .td {
+    @apply px-3 py-2 text-sm text-jira-text;
+  }
+}

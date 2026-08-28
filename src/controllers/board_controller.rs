@@ -1,16 +1,15 @@
+use crate::controllers::get_project_context;
+use crate::dtos::MoveIssuePayload;
+use crate::events::IssueTransitioned;
+use crate::jobs::GenerateSprintBurndownJob;
+use crate::security::caps::{IssueEdit, ProjectAdmin, ViewBoard};
+use crate::services::board_service::BoardService;
 use gritshield::GritJobExt;
 use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
-
-use crate::events::IssueTransitioned;
-use crate::jobs::GenerateSprintBurndownJob;
-use crate::security::caps::{IssueEdit, ProjectAdmin, ViewBoard};
-use crate::services::JqlParser;
-use crate::services::board_service::BoardService;
-use crate::web::partials::issue_card::issue_card;
 
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
@@ -22,6 +21,10 @@ pub struct BoardController;
 
 #[controller("/api/v1/board")]
 impl BoardController {
+    /// GET /api/v1/board/sprints/:sprint_id?project_id=N
+    ///
+    /// Returns the board as structured Kanban columns:
+    /// `{ sprint_id, project_id, columns: [{ step, issues }] }`
     #[get("/sprints/:sprint_id")]
     #[cap(ViewBoard)]
     pub async fn get_board(ctx: RequestContext, board_service: Arc<BoardService>) -> Response {
@@ -30,23 +33,37 @@ impl BoardController {
             None => return Response::bad_request("Invalid or missing sprint ID"),
         };
 
-        let project_id = 1;
+        // Resolve project from query param; fall back to session/default
+        let project_id = get_project_context(&ctx);
 
         match board_service
             .get_sprint_board_data(project_id, sprint_id)
             .await
         {
-            Ok(board_data) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: board_data,
-                },
-            ),
+            Ok(board_data) => {
+                let columns: Vec<_> = board_data
+                    .into_iter()
+                    .map(|(step, issues)| serde_json::json!({ "step": step, "issues": issues }))
+                    .collect();
+
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: serde_json::json!({
+                            "sprint_id": sprint_id,
+                            "project_id": project_id,
+                            "columns": columns,
+                        }),
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to load board: {}", e)),
         }
     }
 
+    /// POST /api/v1/board/issues/:id/move
+    /// Body: `{ "target_step_id": N }` (form field `step_id` also accepted)
     #[post("/issues/:id/move")]
     #[cap(IssueEdit)]
     pub async fn move_issue(ctx: RequestContext, board_service: Arc<BoardService>) -> Response {
@@ -55,47 +72,46 @@ impl BoardController {
             None => return Response::bad_request("Invalid issue ID"),
         };
 
-        let target_step_id: i32 = match ctx.form.fields.get("step_id").and_then(|v| v.first()).and_then(|s| s.parse::<i32>().ok()) {
-            Some(step) => step,
-            None => return Response::bad_request("Missing target step_id"),
+        let target_step_id = if let Ok(payload) = ctx.json::<MoveIssuePayload>().await {
+            payload.target_step_id
+        } else if let Some(step) = ctx
+            .form
+            .fields
+            .get("step_id")
+            .and_then(|v| v.first())
+            .and_then(|s| s.parse::<i32>().ok())
+        {
+            step
+        } else {
+            return Response::bad_request("Missing target step_id");
         };
 
-        let is_htmx = ctx.req.has_header("hx-request");
-
         match board_service.move_issue(issue_id, target_step_id).await {
-            Ok(updated_issue) => {
-                if is_htmx {
-                    // Return the updated issue as an HTML card
-                    let card_markup = issue_card(&updated_issue);
-                    Response::ok(card_markup.into_string())
-                } else {
-                    Response::json(
-                        HttpStatus::Ok,
-                        &ApiResponse {
-                            success: true,
-                            data: updated_issue,
-                        },
-                    )
-                }
-            }
-            Err(e) => {
-                let error_msg = format!("Move failed: {}", e);
-                if is_htmx {
-                    // Return error as HTML for HTMX
-                    Response::bad_request(error_msg)
-                } else {
-                    Response::bad_request(error_msg)
-                }
-            }
+            Ok(updated_issue) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: updated_issue,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Move failed: {}", e)),
         }
     }
 
-    #[get("/trigger-burndown")]
+    /// POST /api/v1/board/trigger-burndown?project_id=N&sprint_id=N
+    #[post("/trigger-burndown")]
     #[cap(ProjectAdmin)]
     pub async fn trigger_burndown(ctx: RequestContext) -> Response {
+        let sprint_id = ctx
+            .query
+            .get("sprint_id")
+            .and_then(|v| v.first().and_then(|s| s.parse().ok()))
+            .unwrap_or(1);
+        let project_id = get_project_context(&ctx);
+
         let job = GenerateSprintBurndownJob {
-            sprint_id: 1,
-            project_id: 10,
+            sprint_id,
+            project_id,
         };
 
         let _ = job.enqueue_in(Duration::from_secs(5)).await;

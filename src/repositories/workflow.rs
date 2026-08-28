@@ -29,6 +29,14 @@ impl WorkflowRepository {
     }
 
     pub async fn create_step(&self, project_id: i32) -> Result<WorkflowStepModel, sea_orm::DbErr> {
+        self.create_step_with_name(project_id, "New Step").await
+    }
+
+    pub async fn create_step_with_name(
+        &self,
+        project_id: i32,
+        name: &str,
+    ) -> Result<WorkflowStepModel, sea_orm::DbErr> {
         use crate::models::workflow::{self, ActiveModel};
         use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
@@ -43,7 +51,7 @@ impl WorkflowRepository {
 
         let new_step = ActiveModel {
             project_id: Set(project_id),
-            name: Set("New Step".to_string()),
+            name: Set(name.to_string()),
             position: Set(next_pos),
             is_completed: Set(false),
             ..Default::default()

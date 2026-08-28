@@ -15,7 +15,6 @@ mod models;
 mod repositories;
 mod security;
 mod services;
-mod web;
 
 // db must be DatabaseConnection not
 fn auto_wire(db: DatabaseConnection) {
@@ -25,17 +24,10 @@ fn auto_wire(db: DatabaseConnection) {
 
 #[catch(status = 404)]
 pub async fn handle_not_found(ctx: RequestContext) -> Response {
-    let retry_after = ctx
-        .headers
-        .get("retry-after")
-        .and_then(|v| v.first())
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(60);
-
-    Response::json_too_many_requests(&serde_json::json!({
-        "error": "Rate limit exceeded",
-        "retry_after": retry_after,
-        "message": format!("Please wait {} seconds before retrying", retry_after)
+    Response::json_not_found(&serde_json::json!({
+        "error": "Not found",
+        "message": format!("No route matches {}", ctx.req.path),
+        "path": ctx.req.path,
     }))
 }
 
@@ -59,10 +51,9 @@ async fn main() {
             vec![
                 "/static/**".to_string(),
                 "/api/v1/auth/**".to_string(),
-                "/jira/login".to_string(),
                 "/admin/**".to_string(),
             ],
-            Some("/jira/login"),
+            None,
         ))
         .mount_db(shared_db.clone());
 

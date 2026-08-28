@@ -201,12 +201,16 @@ impl IssueService {
         project_id: i32,
         reporter_id: i32,
         step_id: i32,
+        project_key: &str,
         ctx: &RequestContext,
     ) -> Result<IssueModel, String> {
-        // Generate issue key
-        let project_key = ctx
-            .get_session_data("current_project_key")
-            .unwrap_or_else(|| "PROJ".to_string());
+        // Generate issue key from the project's real key (e.g. GRIT-1)
+        let project_key = if project_key.is_empty() {
+            ctx.get_session_data("current_project_key")
+                .unwrap_or_else(|| "PROJ".to_string())
+        } else {
+            project_key.to_string()
+        };
 
         // Use IssueEntity explicitly
         let count = IssueEntity::find()
