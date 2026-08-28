@@ -7,7 +7,7 @@ import { useApp } from "@/lib/AppContext";
 import type { Project } from "@/lib/types";
 import { EmptyState, ErrorBox, Field, Modal, Spinner } from "@/components/ui";
 import { useRequest } from "@/lib/hooks";
-import { formatDate } from "@/lib/format";
+import { formatDate, decodeEntities } from "@/lib/format";
 
 export function ProjectsClient() {
   const { selectProject } = useApp();
@@ -64,7 +64,7 @@ export function ProjectsClient() {
                 {p.name}
               </Link>
               <p className="mt-1 line-clamp-2 flex-1 text-xs text-jira-muted">
-                {p.description || "No description."}
+                {decodeEntities(p.description) || "No description."}
               </p>
               <div className="mt-3 flex items-center justify-between border-t border-jira-border pt-2 text-[10px] text-jira-faint">
                 <span>Created {formatDate(p.created_at)}</span>

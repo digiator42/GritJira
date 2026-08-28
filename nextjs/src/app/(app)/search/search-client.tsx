@@ -7,7 +7,7 @@ import { api } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Issue, Project } from "@/lib/types";
 import { ErrorBox, PriorityBadge, TypeBadge } from "@/components/ui";
-import { userById } from "@/lib/format";
+import { userById, decodeEntities } from "@/lib/format";
 
 const EXAMPLES = [
   "priority = 3",
@@ -122,7 +122,7 @@ export function SearchClient() {
                         onClick={() => router.push(`/issues/${issue.id}`)}
                       >
                         <td className="td w-28 text-jira-faint">{issue.key}</td>
-                        <td className="td text-jira-text">{issue.summary}</td>
+                        <td className="td text-jira-text">{decodeEntities(issue.summary)}</td>
                         <td className="td w-20">
                           <TypeBadge type={issue.issue_type} />
                         </td>

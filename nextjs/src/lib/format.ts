@@ -47,3 +47,19 @@ export function userById(users: { id: number; username: string }[], id: number |
   if (id == null) return "Unassigned";
   return users.find((u) => u.id === id)?.username ?? `User #${id}`;
 }
+
+// The API stores text HTML-escaped (&#x27;, &amp;, &#x2F;, ...). Decode for display.
+export function decodeEntities(value: string | null | undefined): string {
+  if (value == null) return "";
+  return value
+    .replace(/&#x27;/gi, "'")
+    .replace(/&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#x2F;/gi, "/")
+    .replace(/&#x3C;/gi, "<")
+    .replace(/&#x3E;/gi, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
+}

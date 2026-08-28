@@ -6,7 +6,7 @@ import type { Issue, Project } from "@/lib/types";
 import { EmptyState, ErrorBox, Spinner } from "@/components/ui";
 import { useRequest } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
-import { formatDate, userById } from "@/lib/format";
+import { formatDate, userById, decodeEntities } from "@/lib/format";
 
 interface ProjectIssues {
   project: Project & { relations?: Record<string, unknown> };
@@ -53,7 +53,7 @@ export function ProjectDetailClient({ id }: { id: number }) {
               </div>
             </div>
             <p className="text-sm text-jira-muted">
-              {project.description || "No description."}
+              {decodeEntities(project.description) || "No description."}
             </p>
             <p className="mt-2 text-[10px] text-jira-faint">
               Created {formatDate(project.created_at)}
@@ -85,7 +85,7 @@ export function ProjectDetailClient({ id }: { id: number }) {
                       onClick={() => router.push(`/issues/${issue.id}`)}
                     >
                       <td className="td text-jira-faint">{issue.key}</td>
-                      <td className="td text-jira-text">{issue.summary}</td>
+                      <td className="td text-jira-text">{decodeEntities(issue.summary)}</td>
                       <td className="td capitalize text-jira-muted">{issue.issue_type}</td>
                       <td className="td text-jira-muted">{userById(users, issue.assignee_id)}</td>
                       <td className="td text-jira-faint">{issue.story_points ?? "—"}</td>

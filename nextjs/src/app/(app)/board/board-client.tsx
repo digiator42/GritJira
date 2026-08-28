@@ -191,7 +191,7 @@ export default function BoardClient({
               return (
                 <div
                   key={col.step.id}
-                  className="flex w-72 shrink-0 flex-col rounded-md border border-jira-border bg-jira-panel"
+                  className="flex min-h-0 w-72 shrink-0 flex-col rounded-md border border-jira-border bg-jira-panel"
                   onDragOver={(e) => {
                     e.preventDefault();
                     if (dragIssue) setDragOver({ stepId: col.step.id, index: col.issues.length });
@@ -222,7 +222,7 @@ export default function BoardClient({
                     </span>
                     <span className="text-[10px] text-jira-faint">{col.issues.length}</span>
                   </div>
-                  <div className="flex flex-1 flex-col gap-2 p-2">
+                  <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
                     {col.issues.length === 0 ? (
                       showIndicatorAt(0) ? (
                         <div className="rounded-md border-2 border-dashed border-jira-blue/70 p-3" />

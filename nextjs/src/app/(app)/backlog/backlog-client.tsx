@@ -6,7 +6,7 @@ import { useApp } from "@/lib/AppContext";
 import type { BacklogData, Issue, Sprint } from "@/lib/types";
 import { Avatar, EmptyState, ErrorBox, Field, Modal, SprintStatusBadge } from "@/components/ui";
 import { IssueCard } from "@/components/IssueCard";
-import { userById, normalizeSprintStatus } from "@/lib/format";
+import { userById, normalizeSprintStatus, decodeEntities } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
 export default function BacklogClient({
@@ -48,7 +48,7 @@ export default function BacklogClient({
     }
   }
 
-  async function sprintAction(action: "start" | "complete" | "delete", id: number) {
+  async function sprintAction(action: "start" | "complete" | "reopen" | "delete", id: number) {
     try {
       if (action === "delete") {
         await api(`/api/v1/sprints/${id}`, { method: "DELETE" });
@@ -103,7 +103,7 @@ export default function BacklogClient({
                       <SprintStatusBadge status={s.status} />
                     </div>
                     <p className="mb-2 text-xs text-jira-muted">
-                      {s.goal || "No goal set."}
+                      {decodeEntities(s.goal) || "No goal set."}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {normalizeSprintStatus(s.status) === "Planning" ? (
@@ -120,7 +120,14 @@ export default function BacklogClient({
                         >
                           Complete
                         </button>
-                      ) : null}
+                      ) : (
+                        <button
+                          className="btn-secondary !px-2 !py-1 !text-xs"
+                          onClick={() => void sprintAction("reopen", s.id)}
+                        >
+                          Reopen
+                        </button>
+                      )}
                       {normalizeSprintStatus(s.status) !== "Active" ? (
                         <button
                           className="btn-danger !px-2 !py-1 !text-xs"

@@ -7,7 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Comment, Issue, IssueDetail, WorkflowStep } from "@/lib/types";
 import { Avatar, ErrorBox, Field, PriorityBadge, Spinner, TypeBadge } from "@/components/ui";
-import { formatDate, userById } from "@/lib/format";
+import { formatDate, userById, decodeEntities } from "@/lib/format";
 
 export function IssueDetailClient({ id }: { id: number }) {
   const router = useRouter();
@@ -56,8 +56,8 @@ export function IssueDetailClient({ id }: { id: number }) {
   useEffect(() => {
     if (issue && !drafts) {
       setDrafts({
-        summary: issue.summary,
-        description: issue.description ?? "",
+        summary: decodeEntities(issue.summary),
+        description: decodeEntities(issue.description ?? ""),
         priority: issue.priority,
         issue_type: issue.issue_type,
         story_points: issue.story_points != null ? String(issue.story_points) : null,
@@ -105,8 +105,8 @@ export function IssueDetailClient({ id }: { id: number }) {
 
   function normalizeDrafts(u: Issue) {
     return {
-      summary: u.summary,
-      description: u.description ?? "",
+      summary: decodeEntities(u.summary),
+      description: decodeEntities(u.description ?? ""),
       priority: u.priority,
       issue_type: u.issue_type,
       story_points: u.story_points != null ? String(u.story_points) : null,
@@ -143,7 +143,7 @@ export function IssueDetailClient({ id }: { id: number }) {
   }
 
   async function del() {
-    if (!issue || !confirm(`Delete ${issue.key} "${issue.summary}"?`)) return;
+    if (!issue || !confirm(`Delete ${issue.key} "${decodeEntities(issue.summary)}"?`)) return;
     try {
       await api(`/api/v1/issues/${id}`, { method: "DELETE" });
       router.replace("/board");
@@ -183,7 +183,7 @@ export function IssueDetailClient({ id }: { id: number }) {
               value={drafts.summary}
               onChange={(e) => setDrafts((d) => (d ? { ...d, summary: e.target.value } : d))}
               onBlur={() => {
-                if (drafts.summary !== issue.summary) void patch({ summary: drafts.summary });
+                if (drafts.summary !== decodeEntities(issue.summary)) void patch({ summary: drafts.summary });
               }}
             />
 
@@ -194,7 +194,7 @@ export function IssueDetailClient({ id }: { id: number }) {
                 value={drafts.description}
                 onChange={(e) => setDrafts((d) => (d ? { ...d, description: e.target.value } : d))}
                 onBlur={() => {
-                  if (drafts.description !== (issue.description ?? ""))
+                  if (drafts.description !== decodeEntities(issue.description ?? ""))
                     void patch({ description: drafts.description || null });
                 }}
                 placeholder="Add a description…"
@@ -249,7 +249,7 @@ export function IssueDetailClient({ id }: { id: number }) {
                         {formatDate(c.created_at)}
                       </span>
                     </div>
-                    <p className="whitespace-pre-wrap text-sm text-jira-text">{c.body}</p>
+                    <p className="whitespace-pre-wrap text-sm text-jira-text">{decodeEntities(c.body)}</p>
                   </div>
                 ))
               )}
