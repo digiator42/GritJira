@@ -16,7 +16,8 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { json, headers, ...rest } = options;
 
-  const res = await fetch(`/api${path}`, {
+  const url = path.startsWith("/api") ? path : `/api${path}`;
+  const res = await fetch(url, {
     credentials: "include",
     ...rest,
     headers: {
