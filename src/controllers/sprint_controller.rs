@@ -124,6 +124,27 @@ impl SprintController {
         }
     }
 
+    /// POST /api/v1/sprints/:id/reopen - Reactivate a completed sprint
+    #[post("/:id/reopen")]
+    #[cap(ProjectAdmin)]
+    pub async fn reopen_sprint(ctx: RequestContext, sprint_repo: Arc<SprintRepository>) -> Response {
+        let sprint_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid sprint ID"),
+        };
+
+        match sprint_repo.reopen_sprint(sprint_id).await {
+            Ok(sprint) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: sprint,
+                },
+            ),
+            Err(e) => Response::bad_request(format!("Failed to reopen sprint: {}", e)),
+        }
+    }
+
     /// DELETE /api/v1/sprints/:id - Delete sprint
     #[delete("/:id")]
     #[cap(ProjectAdmin)]

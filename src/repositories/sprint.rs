@@ -36,11 +36,17 @@ impl SprintRepository {
     }
 
     pub async fn start_sprint(&self, sprint_id: i32) -> Result<sprint::Model, DbErr> {
-        self.update_column_value(sprint_id, "status", "active".into(), None)
-            .await?;
-        let now = Utc::now().naive_utc().to_string();
-        self.update_column_value(sprint_id, "start_date", now, None)
-            .await
+        use crate::models::sprint::{self, Entity as Sprint};
+
+        let sprint = Sprint::find_by_id(sprint_id).one(&self.db).await?;
+        if let Some(s) = sprint {
+            let mut active: sprint::ActiveModel = s.into();
+            active.status = Set("active".to_string());
+            active.start_date = Set(Some(Utc::now().naive_utc()));
+            active.update(&self.db).await
+        } else {
+            Err(DbErr::RecordNotFound("Sprint not found".to_string()))
+        }
     }
 
     pub async fn find_active_by_project(&self, project_id: i32) -> Result<Vec<SprintModel>, DbErr> {
@@ -52,11 +58,35 @@ impl SprintRepository {
     }
 
     pub async fn complete_sprint(&self, sprint_id: i32) -> Result<sprint::Model, DbErr> {
-        self.update_column_value(sprint_id, "status", "completed".into(), None)
-            .await?;
-        let now = Utc::now().naive_utc().to_string();
-        self.update_column_value(sprint_id, "end_date", now, None)
-            .await
+        use crate::models::sprint::{self, Entity as Sprint};
+
+        let sprint = Sprint::find_by_id(sprint_id).one(&self.db).await?;
+        if let Some(s) = sprint {
+            let mut active: sprint::ActiveModel = s.into();
+            active.status = Set("completed".to_string());
+            active.end_date = Set(Some(Utc::now().naive_utc()));
+            active.update(&self.db).await
+        } else {
+            Err(DbErr::RecordNotFound("Sprint not found".to_string()))
+        }
+    }
+
+    pub async fn reopen_sprint(&self, sprint_id: i32) -> Result<sprint::Model, DbErr> {
+        use crate::models::sprint::{self, Entity as Sprint};
+
+        let sprint = Sprint::find_by_id(sprint_id).one(&self.db).await?;
+        if let Some(s) = sprint {
+            let had_start = s.start_date.is_some();
+            let mut active: sprint::ActiveModel = s.into();
+            active.status = Set("active".to_string());
+            active.end_date = Set(None);
+            if !had_start {
+                active.start_date = Set(Some(Utc::now().naive_utc()));
+            }
+            active.update(&self.db).await
+        } else {
+            Err(DbErr::RecordNotFound("Sprint not found".to_string()))
+        }
     }
 
     pub async fn delete_sprint(&self, sprint_id: i32) -> Result<bool, DbErr> {
