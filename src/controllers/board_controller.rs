@@ -72,8 +72,10 @@ impl BoardController {
             None => return Response::bad_request("Invalid issue ID"),
         };
 
-        let target_step_id = if let Ok(payload) = ctx.json::<MoveIssuePayload>().await {
-            payload.target_step_id
+        let payload = ctx.json::<MoveIssuePayload>().await.ok();
+
+        let target_step_id = if let Some(p) = &payload {
+            p.target_step_id
         } else if let Some(step) = ctx
             .form
             .fields
@@ -86,7 +88,11 @@ impl BoardController {
             return Response::bad_request("Missing target step_id");
         };
 
-        match board_service.move_issue(issue_id, target_step_id).await {
+        let position = payload.as_ref().and_then(|p| p.position);
+
+        match board_service
+            .move_issue(issue_id, target_step_id, position)
+            .await {
             Ok(updated_issue) => Response::json(
                 HttpStatus::Ok,
                 &ApiResponse {

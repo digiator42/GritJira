@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { AuthResponse } from "@/lib/types";
 
@@ -80,9 +81,9 @@ export default function LoginPage() {
 
       <p className="mt-4 text-center text-xs text-jira-muted">
         New here?{" "}
-        <a href="/register" className="text-jira-blue hover:underline">
-          Create an account
-        </a>
+        <Link href="/register" className="text-jira-blue hover:underline">
+Create an account
+            </Link>
       </p>
       <p className="mt-3 rounded-md bg-jira-panel px-3 py-2 text-center text-[10px] text-jira-faint">
         Seed users: admin@gritjira.local / admin123 · alex@gritjira.local / alex123

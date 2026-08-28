@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Comment, Issue, IssueDetail, WorkflowStep } from "@/lib/types";
@@ -161,9 +162,9 @@ export function IssueDetailClient({ id }: { id: number }) {
 
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <a href="/board" className="text-sm text-jira-muted hover:text-jira-text">
+          <Link href="/board" className="text-sm text-jira-muted hover:text-jira-text">
             ← Back
-          </a>
+          </Link>
           <span className="text-sm font-semibold text-jira-faint">{issue.key}</span>
           <TypeBadge type={issue.issue_type} />
           <PriorityBadge value={issue.priority} />

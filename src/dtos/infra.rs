@@ -63,6 +63,9 @@ pub struct UpdateSprintPayload {
 #[derive(Deserialize, GritSanitizer)]
 pub struct MoveIssuePayload {
     pub target_step_id: i32,
+
+    #[serde(default)]
+    pub position: Option<i32>,
 }
 
 // ============================================================

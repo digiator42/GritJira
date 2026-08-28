@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Issue, Project } from "@/lib/types";
@@ -148,14 +149,14 @@ export function SearchClient() {
               </h2>
               <div className="flex flex-wrap gap-2">
                 {projects.map((p) => (
-                  <a
+                  <Link
                     key={p.id}
                     href={`/projects/${p.id}`}
                     className="panel px-3 py-2 text-sm text-jira-text transition hover:border-jira-blue/50"
                   >
                     <span className="mr-2 font-bold text-jira-blue">{p.key}</span>
                     {p.name}
-                  </a>
+                  </Link>
                 ))}
               </div>
             </section>

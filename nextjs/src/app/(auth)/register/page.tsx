@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import type { AuthResponse } from "@/lib/types";
 
@@ -109,9 +110,9 @@ export default function RegisterPage() {
 
       <p className="mt-4 text-center text-xs text-jira-muted">
         Already registered?{" "}
-        <a href="/login" className="text-jira-blue hover:underline">
-          Sign in
-        </a>
+        <Link href="/login" className="text-jira-blue hover:underline">
+Sign in
+            </Link>
       </p>
     </div>
   );

@@ -36,6 +36,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    () => {
+      if (typeof window === "undefined") return null;
+      const stored = parseInt(window.localStorage.getItem(STORAGE_KEY) ?? "", 10);
+      return Number.isFinite(stored) ? stored : null;
+    },
+  );
 
   const load = useCallback(async () => {
     try {
@@ -68,16 +75,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const currentProject = useMemo(() => {
     if (projects.length === 0) return null;
-    const stored = parseInt(localStorage.getItem(STORAGE_KEY) ?? "", 10);
-    const fromStorage = Number.isFinite(stored) ? projects.find((p) => p.id === stored) : undefined;
-    if (fromStorage) return fromStorage;
+    const sel = selectedProjectId;
+    const fromSel = sel != null ? projects.find((p) => p.id === sel) : undefined;
+    if (fromSel) return fromSel;
     const fromMe = me?.current_project_id
       ? projects.find((p) => p.id === me.current_project_id)
       : undefined;
     return fromMe ?? projects[0];
-  }, [projects, me]);
+  }, [projects, me, selectedProjectId]);
 
   const selectProject = useCallback((id: number) => {
+    setSelectedProjectId(id);
     localStorage.setItem(STORAGE_KEY, String(id));
   }, []);
 

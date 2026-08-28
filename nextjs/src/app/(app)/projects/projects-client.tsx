@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Project } from "@/lib/types";
@@ -59,9 +60,9 @@ export function ProjectsClient() {
                   ✕
                 </button>
               </div>
-              <a href={`/projects/${p.id}`} className="text-sm font-semibold text-jira-text hover:underline">
+              <Link href={`/projects/${p.id}`} className="text-sm font-semibold text-jira-text hover:underline">
                 {p.name}
-              </a>
+              </Link>
               <p className="mt-1 line-clamp-2 flex-1 text-xs text-jira-muted">
                 {p.description || "No description."}
               </p>

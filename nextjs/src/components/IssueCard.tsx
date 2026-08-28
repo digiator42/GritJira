@@ -12,6 +12,7 @@ export function IssueCard({
   onDragStart,
   onDragOver,
   onDrop,
+  onDragEnd,
 }: {
   issue: Issue;
   users: { id: number; username: string }[];
@@ -20,6 +21,7 @@ export function IssueCard({
   onDragStart?: (e: React.DragEvent) => void;
   onDragOver?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
 }) {
   return (
     <div
@@ -27,6 +29,7 @@ export function IssueCard({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onDragEnd={onDragEnd}
       onClick={onClick}
       className="group cursor-pointer rounded-md border border-jira-border bg-[#1c2129] p-2.5 transition hover:border-jira-blue/60 hover:bg-[#20262f]"
       title={issue.summary}

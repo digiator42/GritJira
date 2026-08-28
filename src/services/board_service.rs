@@ -53,6 +53,8 @@ impl BoardService {
             .issue_repo
             .query()
             .where_eq(issue::Column::SprintId, sprint_id)
+            .order_asc(issue::Column::Position)
+            .order_asc(issue::Column::Id)
             .fetch()
             .await?;
 
@@ -76,8 +78,11 @@ impl BoardService {
         &self,
         issue_id: i32,
         target_step_id: i32,
+        position: Option<i32>,
     ) -> Result<issue::Model, DbErr> {
-        self.issue_repo.update_step(issue_id, target_step_id).await
+        self.issue_repo
+            .update_step_at(issue_id, target_step_id, position)
+            .await
     }
 
     /// Fetch all issues where sprint_id is None
@@ -156,6 +161,7 @@ impl BoardService {
             let issues = Issue::find()
                 .filter(issue::Column::SprintId.eq(sprint_id))
                 .filter(issue::Column::StepId.eq(step.id))
+                .order_by_asc(issue::Column::Position)
                 .order_by_asc(issue::Column::Id)
                 .all(&self.db)
                 .await?;
@@ -228,6 +234,7 @@ impl BoardService {
                 .query()
                 .where_eq(issue::Column::StepId, step.id)
                 .where_eq(issue::Column::SprintId, sprint_id)
+                .order_asc(issue::Column::Position)
                 .order_asc(issue::Column::Id)
                 .fetch()
                 .await?;

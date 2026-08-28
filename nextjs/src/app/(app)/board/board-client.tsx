@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
@@ -29,6 +29,7 @@ export default function BoardClient({
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [dragIssue, setDragIssue] = useState<Issue | null>(null);
+  const [dragOver, setDragOver] = useState<{ stepId: number; index: number } | null>(null);
   const [moving, setMoving] = useState(false);
 
   useEffect(() => {
@@ -77,40 +78,59 @@ export default function BoardClient({
     );
   }
 
-  async function moveIssue(issueId: number, targetStepId: number) {
+  function moveIssue(issueId: number, targetStepId: number, index: number) {
     const issue = (board?.columns ?? [])
       .flatMap((c) => c.issues)
       .find((i) => i.id === issueId);
-    if (!issue || issue.step_id === targetStepId) return;
+    if (!issue || !board) return;
+
+    const fromCol = board.columns.find((c) => c.step.id === issue.step_id);
+    const fromIndex = fromCol?.issues.findIndex((i) => i.id === issueId) ?? -1;
+    if (issue.step_id === targetStepId && index === fromIndex) {
+      setDragIssue(null);
+      setDragOver(null);
+      return;
+    }
+
     setMoving(true);
     setError(null);
+    const targetLen = board.columns.find((c) => c.step.id === targetStepId)?.issues.length ?? 0;
+    const clamped = Math.max(0, Math.min(index, targetLen));
+
     try {
-      // optimistic update
-      if (board) {
-        const next: BoardData = {
-          ...board,
-          columns: board.columns.map((col) => {
-            const has = col.issues.some((i) => i.id === issueId);
-            if (has && col.step.id !== targetStepId) {
-              return { ...col, issues: col.issues.filter((i) => i.id !== issueId) };
-            }
-            if (!has && col.step.id === targetStepId) {
-              return { ...col, issues: [...col.issues, issue] };
-            }
-            return col;
-          }),
-        };
-        setBoard(next);
-      }
-      await api<Issue>(`/api/v1/board/issues/${issueId}/move`, {
+      const next: BoardData = {
+        ...board,
+        columns: board.columns.map((col) => {
+          const issues = col.issues.filter((i) => i.id !== issueId);
+          if (col.step.id !== targetStepId) return { ...col, issues };
+          const insert = Math.min(clamped, issues.length);
+          return { ...col, issues: [...issues.slice(0, insert), issue, ...issues.slice(insert)] };
+        }),
+      };
+      setBoard(next);
+      void api<Issue>(`/api/v1/board/issues/${issueId}/move`, {
         method: "POST",
-        json: { target_step_id: targetStepId },
-      });
+        json: { target_step_id: targetStepId, position: clamped },
+      })
+        .catch((e) => {
+          setError(e instanceof ApiError ? e.message : "Move failed");
+          // reload board to revert the optimistic move
+          if (projectId && sprintId) {
+            api<{ data: BoardData }>(`/api/v1/board/sprints/${sprintId}?project_id=${projectId}`)
+              .then((r) => setBoard(r.data))
+              .catch(() => undefined);
+          }
+        })
+        .finally(() => {
+          setMoving(false);
+          setDragIssue(null);
+          setDragOver(null);
+        });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Move failed");
-    } finally {
       setMoving(false);
       setDragIssue(null);
+      setDragOver(null);
     }
   }
 
@@ -166,14 +186,30 @@ export default function BoardClient({
           <div className="flex h-full gap-3 overflow-x-auto p-4">
             {board.columns.map((col) => {
               const done = col.step.is_completed;
+              const showIndicatorAt = (index: number) =>
+                dragIssue !== null && dragOver?.stepId === col.step.id && dragOver.index === index;
               return (
                 <div
                   key={col.step.id}
                   className="flex w-72 shrink-0 flex-col rounded-md border border-jira-border bg-jira-panel"
-                  onDragOver={(e) => e.preventDefault()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (dragIssue) setDragOver({ stepId: col.step.id, index: col.issues.length });
+                  }}
                   onDrop={(e) => {
                     e.preventDefault();
-                    if (dragIssue) void moveIssue(dragIssue.id, col.step.id);
+                    if (dragIssue) {
+                      const dropIndex =
+                        dragOver?.stepId === col.step.id ? dragOver.index : col.issues.length;
+                      void moveIssue(dragIssue.id, col.step.id, dropIndex);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDragOver((prev) =>
+                        prev?.stepId === col.step.id ? null : prev,
+                      );
+                    }
                   }}
                 >
                   <div
@@ -188,21 +224,52 @@ export default function BoardClient({
                   </div>
                   <div className="flex flex-1 flex-col gap-2 p-2">
                     {col.issues.length === 0 ? (
-                      <p className="py-4 text-center text-xs text-jira-faint">Drop issues here</p>
+                      showIndicatorAt(0) ? (
+                        <div className="rounded-md border-2 border-dashed border-jira-blue/70 p-3" />
+                      ) : (
+                        <p className="py-4 text-center text-xs text-jira-faint">Drop issues here</p>
+                      )
                     ) : (
-                      col.issues.map((issue) => (
-                        <IssueCard
-                          key={issue.id}
-                          issue={issue}
-                          users={users}
-                          draggable={!moving}
-                          onDragStart={(e) => {
-                            setDragIssue(issue);
-                            e.dataTransfer.effectAllowed = "move";
-                          }}
-                          onClick={() => router.push(`/issues/${issue.id}`)}
-                        />
+                      col.issues.map((issue, idx) => (
+                        <Fragment key={issue.id}>
+                          {showIndicatorAt(idx) && (
+                            <div className="rounded-md border-2 border-dashed border-jira-blue/70" style={{ height: 6 }} />
+                          )}
+                          <IssueCard
+                            issue={issue}
+                            users={users}
+                            draggable={!moving}
+                            onDragStart={(e) => {
+                              setDragIssue(issue);
+                              setDragOver(null);
+                              e.dataTransfer.effectAllowed = "move";
+                            }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (!dragIssue) return;
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const before = e.clientY < rect.top + rect.height / 2;
+                              setDragOver({ stepId: col.step.id, index: idx + (before ? 0 : 1) });
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const before = e.clientY < rect.top + rect.height / 2;
+                              if (dragIssue) void moveIssue(dragIssue.id, col.step.id, idx + (before ? 0 : 1));
+                            }}
+                            onDragEnd={() => {
+                              setDragIssue(null);
+                              setDragOver(null);
+                            }}
+                            onClick={() => router.push(`/issues/${issue.id}`)}
+                          />
+                        </Fragment>
                       ))
+                    )}
+                    {col.issues.length > 0 && showIndicatorAt(col.issues.length) && (
+                      <div className="rounded-md border-2 border-dashed border-jira-blue/70" style={{ height: 6 }} />
                     )}
                   </div>
                 </div>

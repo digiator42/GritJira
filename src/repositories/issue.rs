@@ -97,6 +97,54 @@ impl IssueRepository {
         self.update_column_value(issue_id, "step_id", target_step_id.to_string(), None)
             .await
     }
+
+    /// Move an issue to a step and insert it at a specific 0-based index within
+    /// that column. Positions in the target column are renumbered so the result
+    /// is a stable board ordering. Pass `position: None` to append.
+    pub async fn update_step_at(
+        &self,
+        issue_id: i32,
+        target_step_id: i32,
+        position: Option<i32>,
+    ) -> Result<issue::Model, DbErr> {
+        use crate::models::issue::{self, Entity as Issue};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+        let moved = Issue::find_by_id(issue_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound("Issue not found".to_string()))?;
+
+        // Gather the target column (excluding the issue being moved), ordered.
+        let mut column: Vec<issue::Model> = Issue::find()
+            .filter(issue::Column::StepId.eq(target_step_id))
+            .filter(issue::Column::Id.ne(issue_id))
+            .order_by_asc(issue::Column::Position)
+            .order_by_asc(issue::Column::Id)
+            .all(&self.db)
+            .await?;
+
+        let index = match position {
+            Some(p) if p >= 0 => (p as usize).min(column.len()),
+            _ => column.len(),
+        };
+        column.insert(index, moved.clone());
+
+        // Renumber the column so positions reflect display order.
+        for (i, item) in column.iter().enumerate() {
+            let mut active: issue::ActiveModel = item.clone().into();
+            if item.id == issue_id {
+                active.step_id = Set(target_step_id);
+            }
+            active.position = Set((i as i32) * 1000);
+            active.update(&self.db).await?;
+        }
+
+        Issue::find_by_id(issue_id)
+            .one(&self.db)
+            .await?
+            .ok_or_else(|| DbErr::RecordNotFound("Issue not found".to_string()))
+    }
     // Add inside impl IssueRepository:
 
     pub async fn find_unassigned_backlog(&self) -> Result<Vec<issue::Model>, DbErr> {

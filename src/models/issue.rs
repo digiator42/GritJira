@@ -13,6 +13,7 @@ pub struct Model {
     pub step_id: i32,
     pub reporter_id: i32,
     pub assignee_id: Option<i32>,
+    pub position: i32,
     #[sea_orm(unique)]
     pub key: String,
     pub summary: String,
