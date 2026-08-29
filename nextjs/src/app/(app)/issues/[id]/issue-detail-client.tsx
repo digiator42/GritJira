@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
-import type { Comment, Issue, IssueDetail, WorkflowStep } from "@/lib/types";
+import type { Attachment, Comment, Issue, IssueDetail, WorkflowStep } from "@/lib/types";
 import { Avatar, ErrorBox, Field, PriorityBadge, Spinner, TypeBadge } from "@/components/ui";
 import { formatDate, userById, decodeEntities } from "@/lib/format";
 
@@ -300,6 +300,15 @@ export function IssueDetailClient({ id }: { id: number }) {
               />
             </div>
           </div>
+
+          <AttachmentsPanel
+            issueId={id}
+            attachments={detail.attachments ?? []}
+            onChanged={(updater) =>
+              setDetail((d) => (d ? { ...d, attachments: updater(d.attachments ?? []) } : d))
+            }
+            onError={(msg) => setError(msg)}
+          />
         </div>
 
         <div className="space-y-3">
@@ -447,6 +456,154 @@ function fmtMins(m: number | null | undefined): string {
   const mm = m % 60;
   if (h === 0) return `${mm}m`;
   return mm === 0 ? `${h}h` : `${h}h ${mm}m`;
+}
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+
+function AttachmentsPanel({
+  issueId,
+  attachments,
+  onChanged,
+  onError,
+}: {
+  issueId: number;
+  attachments: Attachment[];
+  onChanged: (updater: (prev: Attachment[]) => Attachment[]) => void;
+  onError: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  async function upload(file: File) {
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      onError(`File too large (max 8 MB)`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const data = await readFileAsBase64(file);
+      const r = await api<{ data: Attachment }>(`/api/v1/issues/${issueId}/attachments`, {
+        method: "POST",
+        json: {
+          filename: file.name,
+          mime: file.type || "application/octet-stream",
+          data_base64: data,
+        },
+      });
+      onChanged((prev) => [r.data, ...prev]);
+    } catch (e) {
+      onError(e instanceof ApiError ? e.message : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function download(att: Attachment) {
+    try {
+      const r = await api<{
+        id: number;
+        filename: string;
+        mime_type: string;
+        size_bytes: number;
+        data_base64: string;
+      }>(`/api/v1/attachments/${att.id}/content`);
+      const bytes = Uint8Array.from(atob(r.data_base64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: r.mime_type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = r.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      onError(e instanceof ApiError ? e.message : "Download failed");
+    }
+  }
+
+  async function remove(att: Attachment) {
+    if (!confirm(`Delete attachment "${att.filename}"?`)) return;
+    try {
+      await api(`/api/v1/attachments/${att.id}`, { method: "DELETE" });
+      onChanged((prev) => prev.filter((a) => a.id !== att.id));
+    } catch (e) {
+      onError(e instanceof ApiError ? e.message : "Delete failed");
+    }
+  }
+
+  return (
+    <div className="panel p-4">
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-jira-muted">
+        Attachments ({attachments.length})
+      </h3>
+
+      {attachments.length > 0 ? (
+        <ul className="mb-3 space-y-1.5">
+          {attachments.map((att) => (
+            <li
+              key={att.id}
+              className="flex items-center gap-2 rounded-md border border-jira-border bg-jira-bg px-3 py-2"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-jira-blue/70" />
+              <button
+                className="truncate text-sm text-jira-text hover:underline"
+                onClick={() => void download(att)}
+                title="Download"
+              >
+                {att.filename}
+              </button>
+              <span className="ml-auto shrink-0 text-xs text-jira-faint">
+                {fmtBytes(att.size_bytes)}
+              </span>
+              <span className="shrink-0 text-[11px] text-jira-faint">{att.mime_type}</span>
+              <button
+                className="shrink-0 text-xs text-jira-faint transition hover:text-red-400"
+                onClick={() => void remove(att)}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mb-3 text-xs text-jira-faint">No attachments.</p>
+      )}
+
+      <label className="btn-secondary inline-flex cursor-pointer !text-xs">
+        {busy ? "Uploading…" : "Upload file"}
+        <input
+          type="file"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void upload(f);
+            e.target.value = "";
+          }}
+        />
+      </label>
+    </div>
+  );
+}
+
+function readFileAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const idx = result.indexOf(",");
+      resolve(idx >= 0 ? result.slice(idx + 1) : result);
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("Read failed"));
+    reader.readAsDataURL(file);
+  });
 }
 
 function CommentForm({ onSubmit }: { onSubmit: (body: string) => Promise<void> }) {

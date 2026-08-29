@@ -8,6 +8,7 @@ use crate::repositories::sprint::SprintRepository;
 use crate::security::caps::{IssueEdit, ProjectAdmin, ViewBoard};
 use crate::services::board_service::BoardService;
 use crate::services::issue_service::IssueService;
+use crate::services::webhook_service::WebhookService;
 use chrono::{Duration as ChronoDuration, NaiveDateTime, Utc};
 use gritshield::database::GritRepository;
 use gritshield::GritJobExt;
@@ -77,6 +78,7 @@ impl BoardController {
         board_service: Arc<BoardService>,
         issue_service: Arc<IssueService>,
         activity_log_repo: Arc<ActivityLogRepository>,
+        webhook_service: Arc<WebhookService>,
     ) -> Response {
         let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
@@ -126,6 +128,23 @@ impl BoardController {
                                 iss.step_id, target_step_id
                             )),
                             None,
+                        )
+                        .await;
+
+                    let _ = webhook_service
+                        .fire(
+                            iss.project_id,
+                            "issue.moved",
+                            &serde_json::json!({
+                                "event": "issue.moved",
+                                "issue_id": iss.id,
+                                "key": iss.key,
+                                "summary": iss.summary,
+                                "from_step_id": iss.step_id,
+                                "to_step_id": target_step_id,
+                                "actor_id": actor_id,
+                                "triggered_at": chrono::Utc::now().to_rfc3339(),
+                            }),
                         )
                         .await;
                 }

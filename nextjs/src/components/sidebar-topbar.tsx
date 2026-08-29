@@ -141,6 +141,7 @@ const NAV = [
 const SETTINGS = [
   { href: "/settings/users", label: "Users & Members" },
   { href: "/settings/workflow", label: "Workflow" },
+  { href: "/settings/webhooks", label: "Webhooks" },
 ];
 
 function SidebarContent({

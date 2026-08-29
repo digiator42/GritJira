@@ -9,6 +9,8 @@ pub mod project_member_controller;
 pub mod sprint_controller;
 pub mod user_controller;
 pub mod activity_controller;
+pub mod webhook_controller;
+pub mod attachment_controller;
 
 /// Resolve the active project context for a request.
 ///

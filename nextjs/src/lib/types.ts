@@ -130,6 +130,25 @@ export interface ProjectMember {
   joined_at: string;
 }
 
+export interface Webhook {
+  id: number;
+  project_id: number;
+  name: string;
+  url: string;
+  event: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export const WEBHOOK_EVENTS = [
+  { value: "issue.created", label: "Issue created" },
+  { value: "issue.updated", label: "Issue updated" },
+  { value: "issue.deleted", label: "Issue deleted" },
+  { value: "issue.moved", label: "Issue moved" },
+  { value: "issue.assigned", label: "Issue assigned" },
+  { value: "*", label: "All events" },
+];
+
 export interface BoardColumn {
   step: WorkflowStep;
   issues: Issue[];
@@ -146,9 +165,22 @@ export interface BacklogData {
   sprints: Sprint[];
 }
 
+export interface Attachment {
+  id: number;
+  project_id: number;
+  issue_id: number;
+  uploader_id: number;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  storage_key: string;
+  created_at: string;
+}
+
 export interface IssueDetail {
   issue: Issue;
   comments: Comment[];
+  attachments: Attachment[];
 }
 
 export interface ApiResponse<T> {
