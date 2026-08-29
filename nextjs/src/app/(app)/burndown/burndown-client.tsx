@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { apiData } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { BurndownData, Sprint } from "@/lib/types";
-import { ErrorBox, Spinner } from "@/components/ui";
-import { normalizeSprintStatus } from "@/lib/format";
+import { ErrorBox } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
+import { normalizeSprintStatus, decodeEntities } from "@/lib/format";
 
 const W = 640;
 const H = 240;
@@ -95,7 +96,7 @@ export function BurndownClient() {
           >
             {sprints.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name} ({normalizeSprintStatus(s.status)})
+                {decodeEntities(s.name)} ({normalizeSprintStatus(s.status)})
               </option>
             ))}
           </select>
@@ -105,7 +106,7 @@ export function BurndownClient() {
       {error ? <ErrorBox message={error} /> : null}
 
       {loading && !data ? (
-        <Spinner label="Loading burndown…" />
+        <PageShimmer />
       ) : !data ? (
         <p className="text-xs text-jira-faint">Select a sprint to see its burndown.</p>
       ) : (

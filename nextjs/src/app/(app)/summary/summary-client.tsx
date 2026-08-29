@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { apiData } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { ProjectSummary } from "@/lib/types";
-import { ErrorBox, Spinner } from "@/components/ui";
+import { ErrorBox } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { IssueTypeIcon } from "@/components/IssueTypeIcon";
 
 const STATUS_COLORS = ["#3b82f6", "#a855f7", "#f59e0b", "#ec4899", "#10b981"];
@@ -39,7 +40,7 @@ export function SummaryClient() {
       {error ? <ErrorBox message={error} /> : null}
 
       {loading && !data ? (
-        <Spinner label="Loading summary…" />
+        <PageShimmer />
       ) : !data ? (
         <p className="text-xs text-jira-faint">Select a project to see its summary.</p>
       ) : (

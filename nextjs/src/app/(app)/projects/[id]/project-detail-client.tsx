@@ -3,7 +3,8 @@
 import { api } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Issue, Project } from "@/lib/types";
-import { EmptyState, ErrorBox, Spinner } from "@/components/ui";
+import { EmptyState, ErrorBox } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { useRequest } from "@/lib/hooks";
 import { useRouter } from "next/navigation";
 import { formatDate, userById, decodeEntities } from "@/lib/format";
@@ -25,7 +26,7 @@ export function ProjectDetailClient({ id }: { id: number }) {
 
   return (
     <div className="p-4">
-      {loading && !data ? <Spinner label="Loading project…" /> : null}
+      {loading && !data ? <PageShimmer /> : null}
       {error ? <ErrorBox message={error} /> : null}
       {data && project ? (
         <>
@@ -75,20 +76,40 @@ export function ProjectDetailClient({ id }: { id: number }) {
                     <th className="th">Type</th>
                     <th className="th">Assignee</th>
                     <th className="th">Story points</th>
+                    <th className="th" aria-hidden />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-jira-border/60">
                   {data.issues.map((issue) => (
                     <tr
                       key={issue.id}
-                      className="cursor-pointer transition hover:bg-jira-border/30"
+                      className="group cursor-pointer transition hover:bg-jira-blue/10"
                       onClick={() => router.push(`/issues/${issue.id}`)}
                     >
-                      <td className="td text-jira-faint">{issue.key}</td>
-                      <td className="td text-jira-text">{decodeEntities(issue.summary)}</td>
+                      <td className="td font-medium text-jira-faint transition group-hover:text-jira-blue">
+                        {issue.key}
+                      </td>
+                      <td className="td text-jira-text transition group-hover:text-jira-blue group-hover:underline decoration-jira-blue/50 underline-offset-2">
+                        {decodeEntities(issue.summary)}
+                      </td>
                       <td className="td capitalize text-jira-muted">{issue.issue_type}</td>
                       <td className="td text-jira-muted">{userById(users, issue.assignee_id)}</td>
                       <td className="td text-jira-faint">{issue.story_points ?? "—"}</td>
+                      <td className="td text-right">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="ml-auto h-4 w-4 -translate-x-1 text-jira-blue opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100"
+                          fill="none"
+                        >
+                          <path
+                            d="m9 18 6-6-6-6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

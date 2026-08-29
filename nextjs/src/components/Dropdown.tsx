@@ -11,7 +11,7 @@ export function Dropdown({
   trigger: (props: { open: boolean; toggle: () => void }) => ReactNode;
   align?: "left" | "right";
   panelClassName?: string;
-  children: ReactNode;
+  children: ReactNode | ((close: () => void) => ReactNode);
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -47,7 +47,7 @@ export function Dropdown({
         } ${open ? "visible scale-100 opacity-100" : "invisible scale-95 opacity-0"} ${panelClassName}`}
         aria-hidden={!open}
       >
-        {children}
+        {typeof children === "function" ? children(close) : children}
       </div>
     </div>
   );

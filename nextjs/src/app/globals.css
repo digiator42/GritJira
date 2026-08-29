@@ -95,4 +95,28 @@ body {
   .td {
     @apply px-3 py-2 text-sm text-jira-text;
   }
+  .shimmer {
+    @apply relative overflow-hidden rounded-md;
+    background-color: color-mix(in srgb, var(--jira-border) 35%, transparent);
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(148, 163, 184, 0.22),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
 }

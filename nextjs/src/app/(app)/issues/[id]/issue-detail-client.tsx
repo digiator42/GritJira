@@ -6,8 +6,10 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Attachment, Comment, Issue, IssueDetail, WorkflowStep } from "@/lib/types";
-import { Avatar, ErrorBox, Field, PriorityBadge, Spinner } from "@/components/ui";
+import { Avatar, ErrorBox, Field, PriorityBadge } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { IssueTypeBadge } from "@/components/IssueTypeIcon";
+import { AssigneePicker, TypePicker } from "@/components/pickers";
 import { formatDate, userById, decodeEntities } from "@/lib/format";
 
 export function IssueDetailClient({ id }: { id: number }) {
@@ -102,7 +104,7 @@ export function IssueDetailClient({ id }: { id: number }) {
   if (loading && !detail) {
     return (
       <div className="p-4">
-        <Spinner label="Loading issue…" />
+        <PageShimmer />
       </div>
     );
   }
@@ -318,18 +320,11 @@ export function IssueDetailClient({ id }: { id: number }) {
         <div className="space-y-3">
           <div className="panel p-3">
             <Field label="Assignee">
-              <select
-                className="input"
+              <AssigneePicker
+                users={users}
                 value={drafts.assignee_id}
-                onChange={(e) => void setAssignee(e.target.value)}
-              >
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.username}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => void setAssignee(v)}
+              />
             </Field>
             <div className="mt-3">
               <Field label="Priority">
@@ -348,17 +343,11 @@ export function IssueDetailClient({ id }: { id: number }) {
             </div>
             <div className="mt-3">
               <Field label="Type">
-                <select
-                  className="input"
+                <TypePicker
+                  options={issueTypes}
                   value={drafts.issue_type}
-                  onChange={(e) => void patch({ issue_type: e.target.value })}
-                >
-                  {(issueTypes.length > 0 ? issueTypes : [{ id: 0, name: "story" }]).map((t) => (
-                    <option key={`${t.id}-${t.name}`} value={t.name}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(v) => void patch({ issue_type: v })}
+                />
               </Field>
             </div>
             <div className="mt-3">

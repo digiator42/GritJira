@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { BoardData, Issue, Sprint } from "@/lib/types";
-import { ErrorBox, Modal, Spinner } from "@/components/ui";
+import { ErrorBox, Modal } from "@/components/ui";
 import { IssueCard } from "@/components/IssueCard";
 import { IssueCreateForm } from "@/components/IssueCreateForm";
-import { normalizeSprintStatus } from "@/lib/format";
+import { PageShimmer } from "@/components/PageShimmer";
+import { normalizeSprintStatus, decodeEntities } from "@/lib/format";
 
 export default function BoardClient({
   initialProjectId,
@@ -156,7 +157,7 @@ export default function BoardClient({
             >
               {sprints.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name} · {normalizeSprintStatus(s.status)}
+                  {decodeEntities(s.name)} · {normalizeSprintStatus(s.status)}
                 </option>
               ))}
             </select>
@@ -173,7 +174,7 @@ export default function BoardClient({
             <ErrorBox message={error} />
           </div>
         ) : loading && !board ? (
-          <Spinner label="Loading board…" />
+          <PageShimmer />
         ) : !board || board.columns.length === 0 ? (
           <div className="p-6">
             <ErrorBox message="This project has no workflow columns yet. Open Workflow settings to add some." />

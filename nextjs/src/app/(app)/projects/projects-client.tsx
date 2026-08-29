@@ -5,7 +5,8 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Project } from "@/lib/types";
-import { EmptyState, ErrorBox, Field, Modal, Spinner } from "@/components/ui";
+import { EmptyState, ErrorBox, Field, Modal } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { useRequest } from "@/lib/hooks";
 import { formatDate, decodeEntities } from "@/lib/format";
 
@@ -41,7 +42,7 @@ export function ProjectsClient() {
 
       {error ? <ErrorBox message={error} /> : null}
       {loading ? (
-        <Spinner label="Loading projects…" />
+        <PageShimmer />
       ) : !data || data.length === 0 ? (
         <EmptyState title="No projects yet" hint="Create your first project to get started." />
       ) : (

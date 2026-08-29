@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { ProjectMember } from "@/lib/types";
-import { Avatar, EmptyState, ErrorBox, Field, Spinner } from "@/components/ui";
+import { Avatar, EmptyState, ErrorBox, Field } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { formatDate } from "@/lib/format";
 import { MEMBER_ROLES } from "@/lib/types";
 
@@ -76,7 +77,7 @@ export function UsersSettingsClient() {
       </div>
 
       {error ? <ErrorBox message={error} /> : null}
-      {loading && members.length === 0 ? <Spinner label="Loading members…" /> : null}
+      {loading && members.length === 0 ? <PageShimmer /> : null}
 
       {isAdmin ? (
         <AddMember users={unassigned} projectId={projectId} onAdded={load} />

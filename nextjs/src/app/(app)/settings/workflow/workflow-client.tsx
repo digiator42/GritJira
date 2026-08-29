@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { WorkflowStep } from "@/lib/types";
-import { EmptyState, ErrorBox, Field, Spinner } from "@/components/ui";
+import { EmptyState, ErrorBox, Field } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { useRouter } from "next/navigation";
 
 export function WorkflowSettingsClient() {
@@ -120,7 +121,7 @@ export function WorkflowSettingsClient() {
           <ErrorBox message={error} />
         </div>
       ) : null}
-      {loading && steps.length === 0 ? <Spinner label="Loading workflow…" /> : null}
+      {loading && steps.length === 0 ? <PageShimmer /> : null}
 
       {steps.length === 0 && !loading ? (
         <EmptyState

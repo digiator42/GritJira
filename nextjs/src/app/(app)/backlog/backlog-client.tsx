@@ -6,6 +6,7 @@ import { useApp } from "@/lib/AppContext";
 import type { BacklogData, Issue, Sprint } from "@/lib/types";
 import { Avatar, EmptyState, ErrorBox, Field, Modal, SprintStatusBadge } from "@/components/ui";
 import { IssueCard } from "@/components/IssueCard";
+import { PageShimmer } from "@/components/PageShimmer";
 import { userById, normalizeSprintStatus, decodeEntities } from "@/lib/format";
 import { useRouter } from "next/navigation";
 
@@ -84,7 +85,7 @@ export default function BacklogClient({
       {error ? <ErrorBox message={error} /> : null}
 
       {loading && !data ? (
-        <div className="text-center text-sm text-jira-muted">Loading…</div>
+        <PageShimmer />
       ) : data ? (
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Sprints */}
@@ -99,7 +100,7 @@ export default function BacklogClient({
                 {data.sprints.map((s: Sprint) => (
                   <div key={s.id} className="rounded-md border border-jira-border bg-jira-bg p-3">
                     <div className="mb-1 flex items-center gap-2">
-                      <span className="text-sm font-semibold text-jira-text">{s.name}</span>
+                      <span className="text-sm font-semibold text-jira-text">{decodeEntities(s.name)}</span>
                       <SprintStatusBadge status={s.status} />
                     </div>
                     <p className="mb-2 text-xs text-jira-muted">
@@ -132,7 +133,7 @@ export default function BacklogClient({
                         <button
                           className="btn-danger !px-2 !py-1 !text-xs"
                           onClick={() => {
-                            if (confirm(`Delete sprint "${s.name}"?`)) void sprintAction("delete", s.id);
+                            if (confirm(`Delete sprint "${decodeEntities(s.name)}"?`)) void sprintAction("delete", s.id);
                           }}
                         >
                           Delete
@@ -187,7 +188,7 @@ export default function BacklogClient({
                         <option value="">Assign to sprint…</option>
                         {data.sprints.map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.name}
+                            {decodeEntities(s.name)}
                           </option>
                         ))}
                         <option value="null">Remove from sprint (backlog)</option>

@@ -6,6 +6,7 @@ import { apiData } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { ActivityLog, NotificationsFeed } from "@/lib/types";
 import { ErrorBox } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { userById, formatAgo, decodeEntities } from "@/lib/format";
 
 export function NotificationsClient() {
@@ -71,7 +72,9 @@ export function NotificationsClient() {
 
       {error ? <ErrorBox message={error} /> : null}
 
-      {items.length === 0 ? (
+      {!feed ? (
+        <PageShimmer />
+      ) : items.length === 0 ? (
         <p className="text-xs text-jira-faint">No notifications yet.</p>
       ) : (
         <ol className="panel divide-y divide-jira-border/60">

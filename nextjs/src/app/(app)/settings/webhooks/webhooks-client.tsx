@@ -5,7 +5,8 @@ import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Webhook } from "@/lib/types";
 import { WEBHOOK_EVENTS } from "@/lib/types";
-import { EmptyState, ErrorBox, Field, Spinner } from "@/components/ui";
+import { EmptyState, ErrorBox, Field } from "@/components/ui";
+import { PageShimmer } from "@/components/PageShimmer";
 import { formatDate } from "@/lib/format";
 
 export function WebhooksSettingsClient() {
@@ -59,7 +60,7 @@ export function WebhooksSettingsClient() {
       </div>
 
       {error ? <ErrorBox message={error} /> : null}
-      {loading && hooks.length === 0 ? <Spinner label="Loading webhooks…" /> : null}
+      {loading && hooks.length === 0 ? <PageShimmer /> : null}
 
       <AddWebhook projectId={projectId} onAdded={load} />
 
