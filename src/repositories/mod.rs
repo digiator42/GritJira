@@ -5,3 +5,4 @@ pub mod sprint;
 pub mod user;
 pub mod workflow;
 pub mod project_member;
+pub mod activity_log;

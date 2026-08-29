@@ -70,6 +70,55 @@ export interface Comment {
   created_at: string;
 }
 
+export interface ActivityLog {
+  id: number;
+  project_id: number;
+  actor_id: number;
+  action: string;
+  issue_id: number | null;
+  issue_key: string | null;
+  summary: string | null;
+  detail: string | null;
+  target_user_id: number | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface NotificationsFeed {
+  items: ActivityLog[];
+  unread: number;
+}
+
+export interface BurndownPoint {
+  date: string;
+  remaining: number;
+}
+
+export interface BurndownColumn {
+  id: number;
+  name: string;
+  is_completed: boolean;
+  count: number;
+  points: number;
+}
+
+export interface BurndownData {
+  sprint: {
+    id: number;
+    name: string;
+    status: string;
+    start_date: string | null;
+    end_date: string | null;
+  };
+  total_points: number;
+  done_points: number;
+  remaining_points: number;
+  percent_done: number;
+  columns: BurndownColumn[];
+  ideal: BurndownPoint[];
+  actual: BurndownPoint[];
+}
+
 export interface ProjectMember {
   id: number;
   project_id: number;

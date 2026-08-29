@@ -1,6 +1,7 @@
 use crate::controllers::{get_project_context, get_project_key};
 use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload, UpdateIssuePayload};
 use crate::models::comment;
+use crate::repositories::activity_log::ActivityLogRepository;
 use crate::repositories::comment::CommentRepository;
 use crate::security::caps::{IssueCreate, IssueEdit, ViewBoard};
 use crate::services::JqlParser;
@@ -74,6 +75,7 @@ impl IssueController {
         ctx: RequestContext,
         issue_service: Arc<IssueService>,
         project_service: Arc<ProjectService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
     ) -> Response {
         let project_id = get_project_context(&ctx);
 
@@ -115,13 +117,27 @@ impl IssueController {
             .create_issue_with_step(payload, project_id, reporter_id, default_step_id, &project_key, &ctx)
             .await
         {
-            Ok(created) => Response::json(
-                HttpStatus::Created,
-                &ApiResponse {
-                    success: true,
-                    data: created,
-                },
-            ),
+            Ok(created) => {
+                let _ = activity_log_repo
+                    .record(
+                        created.project_id,
+                        reporter_id,
+                        "created",
+                        Some(created.id),
+                        Some(&created.key),
+                        Some(&created.summary),
+                        Some("Issue created"),
+                        created.assignee_id.filter(|a| *a != reporter_id),
+                    )
+                    .await;
+                Response::json(
+                    HttpStatus::Created,
+                    &ApiResponse {
+                        success: true,
+                        data: created,
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to create issue: {}", e)),
         }
     }
@@ -129,7 +145,11 @@ impl IssueController {
     /// PATCH /api/v1/issues/:id/step - Move issue step (Kanban workflow transition)
     #[patch("/:id/step")]
     #[cap(IssueEdit)]
-    pub async fn move_step(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+    pub async fn move_step(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
+    ) -> Response {
         let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid issue ID"),
@@ -140,24 +160,43 @@ impl IssueController {
             Err(_) => return Response::bad_request("Invalid target step payload"),
         };
 
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
+
+        let issue_before = issue_service.get_issue_by_id(issue_id).await.ok().flatten();
+
         match issue_service
-            .move_issue_step(
-                issue_id,
-                payload.target_step_id,
-                ctx.get_session_data("user_id")
-                    .and_then(|id| id.parse().ok())
-                    .unwrap_or(1),
-                &ctx,
-            )
+            .move_issue_step(issue_id, payload.target_step_id, actor_id, &ctx)
             .await
         {
-            Ok(updated) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: updated,
-                },
-            ),
+            Ok(updated) => {
+                if let Some(iss) = &issue_before {
+                    let _ = activity_log_repo
+                        .record(
+                            iss.project_id,
+                            actor_id,
+                            "moved",
+                            Some(iss.id),
+                            Some(&iss.key),
+                            Some(&iss.summary),
+                            Some(&format!(
+                                "from step {} to step {}",
+                                iss.step_id, payload.target_step_id
+                            )),
+                            None,
+                        )
+                        .await;
+                }
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: updated,
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to move issue: {}", e)),
         }
     }
@@ -165,7 +204,11 @@ impl IssueController {
     /// POST /api/v1/issues/:id/comments - Add comment to issue
     #[post("/:id/comments")]
     #[cap(IssueEdit)]
-    pub async fn add_comment(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+    pub async fn add_comment(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
+    ) -> Response {
         let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid issue ID"),
@@ -181,17 +224,43 @@ impl IssueController {
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
+        let issue = issue_service.get_issue_by_id(issue_id).await.ok().flatten();
+
         match issue_service
             .add_comment(issue_id, payload, author_id, &ctx)
             .await
         {
-            Ok(comment) => Response::json(
-                HttpStatus::Created,
-                &ApiResponse {
-                    success: true,
-                    data: comment,
-                },
-            ),
+            Ok(comment) => {
+                if let Some(iss) = &issue {
+                    let mut detail = comment.body.clone();
+                    if detail.chars().count() > 60 {
+                        detail = detail.chars().take(60).collect::<String>() + "…";
+                    }
+                    let target = iss
+                        .assignee_id
+                        .filter(|a| *a != author_id)
+                        .or_else(|| (iss.reporter_id != author_id).then_some(iss.reporter_id));
+                    let _ = activity_log_repo
+                        .record(
+                            iss.project_id,
+                            author_id,
+                            "commented",
+                            Some(iss.id),
+                            Some(&iss.key),
+                            Some(&iss.summary),
+                            Some(&detail),
+                            target,
+                        )
+                        .await;
+                }
+                Response::json(
+                    HttpStatus::Created,
+                    &ApiResponse {
+                        success: true,
+                        data: comment,
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to add comment: {}", e)),
         }
     }
@@ -229,7 +298,11 @@ impl IssueController {
     /// PATCH /api/v1/issues/:id/assignee - Assign or unassign an issue
     #[patch("/:id/assignee")]
     #[cap(IssueEdit)]
-    pub async fn assign_issue(ctx: RequestContext, issue_service: Arc<IssueService>) -> Response {
+    pub async fn assign_issue(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
+    ) -> Response {
         let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid issue ID"),
@@ -240,17 +313,40 @@ impl IssueController {
             Err(_) => return Response::bad_request("Invalid assignee payload"),
         };
 
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
+
         match issue_service
             .assign_issue(issue_id, payload.assignee_id)
             .await
         {
-            Ok(updated_issue) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: updated_issue,
-                },
-            ),
+            Ok(updated_issue) => {
+                let assign_detail = match updated_issue.assignee_id {
+                    Some(aid) => format!("Assigned to user {}", aid),
+                    None => "Assignee removed".to_string(),
+                };
+                let _ = activity_log_repo
+                    .record(
+                        updated_issue.project_id,
+                        actor_id,
+                        "assigned",
+                        Some(updated_issue.id),
+                        Some(&updated_issue.key),
+                        Some(&updated_issue.summary),
+                        Some(&assign_detail),
+                        updated_issue.assignee_id,
+                    )
+                    .await;
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: updated_issue,
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to update assignee: {}", e)),
         }
     }
@@ -261,11 +357,34 @@ impl IssueController {
     pub async fn delete_issue(
         ctx: RequestContext,
         issue_service: Arc<IssueService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
     ) -> Response {
         let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid issue ID"),
         };
+
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
+
+        let issue_before = issue_service.get_issue_by_id(issue_id).await.ok().flatten();
+
+        if let Some(iss) = &issue_before {
+            let _ = activity_log_repo
+                .record(
+                    iss.project_id,
+                    actor_id,
+                    "deleted",
+                    Some(iss.id),
+                    Some(&iss.key),
+                    Some(&iss.summary),
+                    Some("Issue deleted"),
+                    None,
+                )
+                .await;
+        }
 
         match issue_service.delete_issue(issue_id).await {
             Ok(true) => Response::json(
@@ -286,6 +405,7 @@ impl IssueController {
     pub async fn update_issue(
         ctx: RequestContext,
         issue_service: Arc<IssueService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
     ) -> Response {
         let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
@@ -296,6 +416,11 @@ impl IssueController {
             Ok(p) => p,
             Err(_) => return Response::bad_request("Invalid issue payload"),
         };
+
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
 
         match issue_service
             .update_issue(
@@ -308,13 +433,32 @@ impl IssueController {
             )
             .await
         {
-            Ok(Some(issue)) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: issue,
-                },
-            ),
+            Ok(Some(issue)) => {
+                let changed = payload
+                    .summary
+                    .clone()
+                    .map(|s| !s.is_empty())
+                    .unwrap_or(false);
+                let _ = activity_log_repo
+                    .record(
+                        issue.project_id,
+                        actor_id,
+                        "updated",
+                        Some(issue.id),
+                        Some(&issue.key),
+                        Some(&issue.summary),
+                        Some(if changed { "Fields updated" } else { "Issue updated" }),
+                        None,
+                    )
+                    .await;
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: issue,
+                    },
+                )
+            }
             Ok(None) => Response::not_found("Issue not found"),
             Err(e) => Response::bad_request(format!("Failed to update issue: {}", e)),
         }

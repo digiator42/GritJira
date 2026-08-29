@@ -5,6 +5,7 @@ use serde::Serialize;
 use std::sync::Arc;
 
 use crate::dtos::{CreateSprintPayload, UpdateSprintPayload};
+use crate::repositories::activity_log::ActivityLogRepository;
 use crate::repositories::sprint::SprintRepository;
 use crate::security::caps::{ProjectAdmin, ViewBoard};
 
@@ -82,20 +83,43 @@ impl SprintController {
     /// POST /api/v1/sprints/:id/start - Activate sprint
     #[post("/:id/start")]
     #[cap(ProjectAdmin)]
-    pub async fn start_sprint(ctx: RequestContext, sprint_repo: Arc<SprintRepository>) -> Response {
+    pub async fn start_sprint(
+        ctx: RequestContext,
+        sprint_repo: Arc<SprintRepository>,
+        activity_log_repo: Arc<ActivityLogRepository>,
+    ) -> Response {
         let sprint_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid sprint ID"),
         };
 
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
+
         match sprint_repo.start_sprint(sprint_id).await {
-            Ok(sprint) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: sprint,
-                },
-            ),
+            Ok(sprint) => {
+                let _ = activity_log_repo
+                    .record(
+                        sprint.project_id,
+                        actor_id,
+                        "sprint.started",
+                        None,
+                        None,
+                        Some(&sprint.name),
+                        Some("Sprint started"),
+                        None,
+                    )
+                    .await;
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: sprint,
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to start sprint: {}", e)),
         }
     }
@@ -106,20 +130,40 @@ impl SprintController {
     pub async fn complete_sprint(
         ctx: RequestContext,
         sprint_repo: Arc<SprintRepository>,
+        activity_log_repo: Arc<ActivityLogRepository>,
     ) -> Response {
         let sprint_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
             Some(id) => id,
             None => return Response::bad_request("Invalid sprint ID"),
         };
 
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
+
         match sprint_repo.complete_sprint(sprint_id).await {
-            Ok(sprint) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: sprint,
-                },
-            ),
+            Ok(sprint) => {
+                let _ = activity_log_repo
+                    .record(
+                        sprint.project_id,
+                        actor_id,
+                        "sprint.completed",
+                        None,
+                        None,
+                        Some(&sprint.name),
+                        Some("Sprint completed"),
+                        None,
+                    )
+                    .await;
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: sprint,
+                    },
+                )
+            }
             Err(e) => Response::bad_request(format!("Failed to complete sprint: {}", e)),
         }
     }

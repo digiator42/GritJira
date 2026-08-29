@@ -8,6 +8,7 @@ pub mod project_controller;
 pub mod project_member_controller;
 pub mod sprint_controller;
 pub mod user_controller;
+pub mod activity_controller;
 
 /// Resolve the active project context for a request.
 ///

@@ -133,6 +133,8 @@ const NAV = [
   { href: "/backlog", label: "Backlog" },
   { href: "/projects", label: "Projects" },
   { href: "/search", label: "Search" },
+  { href: "/burndown", label: "Burndown" },
+  { href: "/activity", label: "Activity" },
 ];
 
 const SETTINGS = [
@@ -208,8 +210,35 @@ export function Sidebar({ pathname }: { pathname: string }) {
 }
 
 export function Topbar() {
-  const { me } = useApp();
+  const { me, currentProject } = useApp();
   const router = useRouter();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    let cancelled = false;
+    const poll = () => {
+      fetch(`/api/v1/notifications/unread?project_id=${currentProject.id}`, {
+        credentials: "include",
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((body) => {
+          if (!cancelled) setUnread(typeof body?.data === "number" ? body.data : 0);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const t = setInterval(poll, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [currentProject]);
+
+  const openPalette = () =>
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
+    );
 
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-jira-border bg-jira-panel px-4">
@@ -228,11 +257,31 @@ export function Topbar() {
         </Link>
       </div>
 
-      <Link
-        href="/search"
+      <button
+        type="button"
+        onClick={openPalette}
         className="flex items-center gap-2 rounded-md border border-jira-border bg-jira-bg px-3 py-1.5 text-sm text-jira-faint transition hover:border-jira-blue/50"
       >
-        <span>⌕</span> Search issues…
+        <span>⌕</span> Search…
+        <kbd className="rounded border border-jira-border bg-jira-panel px-1 text-[10px] text-jira-muted">
+          Ctrl K
+        </kbd>
+      </button>
+
+      <Link
+        href="/notifications"
+        title="Notifications"
+        className="relative flex h-8 w-8 items-center justify-center rounded-md border border-jira-border text-jira-muted transition hover:border-jira-blue/50 hover:text-jira-text"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+        {unread > 0 ? (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        ) : null}
       </Link>
 
       <div className="flex items-center gap-3">

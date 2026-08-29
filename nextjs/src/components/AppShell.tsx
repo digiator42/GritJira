@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import type { Me } from "@/lib/types";
 import { AppProvider } from "@/lib/AppContext";
 import { Sidebar, Topbar } from "./sidebar-topbar";
+import { CommandPalette } from "./CommandPalette";
 import { Spinner } from "./ui";
 
 type Phase = "loading" | "anon" | "ok";
@@ -63,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>
+      <CommandPalette />
     </AppProvider>
   );
 }
