@@ -6,7 +6,7 @@ API exposed by the Rust server, proxied in dev to avoid CORS.
 
 ## Architecture
 
-- **Backend** (`../` repo root): Rust (GritShield framework). Serves a
+- **Backend** (`../backend`): Rust (GritShield framework). Serves a
   JSON-only API under `/api/v1`, owns sessions (`GSESSION_ID` cookie) and is
   the single source of truth. Postgres DB required.
 - **Frontend** (this directory): Next.js 15 (App Router) + React 19 +
@@ -19,11 +19,11 @@ API exposed by the Rust server, proxied in dev to avoid CORS.
 - Rust toolchain (for the backend)
 - PostgreSQL running locally with a database named `grit_jira`
   (set `DATABASE_URL=postgres://postgres:admin@localhost:5432/grit_jira`
-  in the backend `.env`)
+  in the backend `../backend/.env`)
 
 ## Running both servers
 
-1. **Start the backend** (from the repo root `GritJira`):
+1. **Start the backend** (from `../backend`):
 
    ```bash
    cargo run
