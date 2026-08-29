@@ -6,12 +6,13 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
 import type { Attachment, Comment, Issue, IssueDetail, WorkflowStep } from "@/lib/types";
-import { Avatar, ErrorBox, Field, PriorityBadge, Spinner, TypeBadge } from "@/components/ui";
+import { Avatar, ErrorBox, Field, PriorityBadge, Spinner } from "@/components/ui";
+import { IssueTypeBadge } from "@/components/IssueTypeIcon";
 import { formatDate, userById, decodeEntities } from "@/lib/format";
 
 export function IssueDetailClient({ id }: { id: number }) {
   const router = useRouter();
-  const { users } = useApp();
+  const { users, issueTypes } = useApp();
 
   const [detail, setDetail] = useState<IssueDetail | null>(null);
   const [steps, setSteps] = useState<WorkflowStep[]>([]);
@@ -51,6 +52,7 @@ export function IssueDetailClient({ id }: { id: number }) {
     issue_type: string;
     story_points: string | null;
     assignee_id: string;
+    due_date: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export function IssueDetailClient({ id }: { id: number }) {
         issue_type: issue.issue_type,
         story_points: issue.story_points != null ? String(issue.story_points) : null,
         assignee_id: issue.assignee_id != null ? String(issue.assignee_id) : "",
+        due_date: issue.due_date ?? "",
       });
     }
   }, [issue, drafts]);
@@ -141,6 +144,7 @@ export function IssueDetailClient({ id }: { id: number }) {
       issue_type: u.issue_type,
       story_points: u.story_points != null ? String(u.story_points) : null,
       assignee_id: u.assignee_id != null ? String(u.assignee_id) : "",
+      due_date: u.due_date ?? "",
     };
   }
 
@@ -196,7 +200,7 @@ export function IssueDetailClient({ id }: { id: number }) {
             ← Back
           </Link>
           <span className="text-sm font-semibold text-jira-faint">{issue.key}</span>
-          <TypeBadge type={issue.issue_type} />
+          <IssueTypeBadge type={issue.issue_type} issueTypes={issueTypes} />
           <PriorityBadge value={issue.priority} />
         </div>
         <button className="btn-danger" onClick={() => void del()}>
@@ -349,12 +353,28 @@ export function IssueDetailClient({ id }: { id: number }) {
                   value={drafts.issue_type}
                   onChange={(e) => void patch({ issue_type: e.target.value })}
                 >
-                  {["story", "bug", "task", "epic", "subtask"].map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {(issueTypes.length > 0 ? issueTypes : [{ id: 0, name: "story" }]).map((t) => (
+                    <option key={`${t.id}-${t.name}`} value={t.name}>
+                      {t.name}
                     </option>
                   ))}
                 </select>
+              </Field>
+            </div>
+            <div className="mt-3">
+              <Field label="Due date">
+                <input
+                  type="date"
+                  className="input"
+                  value={drafts.due_date ?? ""}
+                  onChange={(e) =>
+                    setDrafts((d) => (d ? { ...d, due_date: e.target.value } : d))
+                  }
+                  onBlur={() => {
+                    const v = drafts.due_date === "" ? null : drafts.due_date;
+                    if (v !== issue.due_date) void patch({ due_date: v });
+                  }}
+                />
               </Field>
             </div>
             <div className="mt-3">

@@ -3,6 +3,7 @@ use serde_aux::field_attributes::{
     deserialize_number_from_string,
     deserialize_option_number_from_string,
 };
+use chrono::NaiveDate;
 use gritshield::GritSanitizer;
 
 #[derive(Deserialize, GritSanitizer, Debug)]
@@ -30,6 +31,9 @@ pub struct CreateIssuePayload {
 
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub assignee_id: Option<i32>,
+
+    #[serde(default)]
+    pub due_date: Option<NaiveDate>,
 
     #[clean(trim)]
     #[serde(default)]
@@ -98,4 +102,7 @@ pub struct UpdateIssuePayload {
 
     #[serde(default)]
     pub time_estimate_minutes: Option<i32>,
+
+    #[serde(default)]
+    pub due_date: Option<NaiveDate>,
 }

@@ -9,16 +9,18 @@ import {
   useState,
 } from "react";
 import { api } from "@/lib/api";
-import type { Me, Project, User } from "@/lib/types";
+import type { Me, Project, User, IssueType } from "@/lib/types";
 
 interface AppContextValue {
   me: Me | null;
   projects: Project[];
   users: User[];
   currentProject: Project | null;
+  issueTypes: IssueType[];
   error: string | null;
   selectProject: (id: number) => void;
   refreshProjects: () => Promise<void>;
+  refreshIssueTypes: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -35,6 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [issueTypes, setIssueTypes] = useState<IssueType[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
     () => {
@@ -89,9 +92,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, String(id));
   }, []);
 
+  const refreshIssueTypes = useCallback(async () => {
+    const id = selectedProjectId ?? me?.current_project_id;
+    if (!id) {
+      setIssueTypes([]);
+      return;
+    }
+    try {
+      const r = await api<{ data: IssueType[] }>(`/api/v1/projects/${id}/issue-types`);
+      setIssueTypes(r.data);
+    } catch {
+      setIssueTypes([]);
+    }
+  }, [selectedProjectId, me?.current_project_id]);
+
+  useEffect(() => {
+    void refreshIssueTypes();
+  }, [refreshIssueTypes]);
+
   const value = useMemo(
-    () => ({ me, projects, users, currentProject, error, selectProject, refreshProjects }),
-    [me, projects, users, currentProject, error, selectProject, refreshProjects],
+    () => ({
+      me,
+      projects,
+      users,
+      currentProject,
+      issueTypes,
+      error,
+      selectProject,
+      refreshProjects,
+      refreshIssueTypes,
+    }),
+    [me, projects, users, currentProject, issueTypes, error, selectProject, refreshProjects, refreshIssueTypes],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

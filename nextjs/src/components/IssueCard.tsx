@@ -1,8 +1,10 @@
 "use client";
 
 import type { Issue } from "@/lib/types";
-import { PriorityBadge, TypeBadge, Avatar } from "./ui";
+import { PriorityBadge, Avatar } from "./ui";
 import { userById, decodeEntities } from "@/lib/format";
+import { IssueTypeBadge } from "./IssueTypeIcon";
+import { useApp } from "@/lib/AppContext";
 
 export function IssueCard({
   issue,
@@ -23,6 +25,7 @@ export function IssueCard({
   onDrop?: (e: React.DragEvent) => void;
   onDragEnd?: (e: React.DragEvent) => void;
 }) {
+  const { issueTypes } = useApp();
   return (
     <div
       draggable={draggable}
@@ -43,9 +46,16 @@ export function IssueCard({
       </p>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <TypeBadge type={issue.issue_type} />
+          <IssueTypeBadge type={issue.issue_type} issueTypes={issueTypes} size={15} />
           {issue.story_points != null && (
             <span className="text-[10px] text-jira-faint">${issue.story_points}</span>
+          )}
+          {issue.due_date && (
+            <span
+              className={`text-[10px] ${issue.due_date < new Date().toISOString().slice(0, 10) ? "text-red-400" : "text-jira-faint"}`}
+            >
+              ⏱ {issue.due_date}
+            </span>
           )}
         </div>
         <Avatar name={userById(users, issue.assignee_id)} size={22} />

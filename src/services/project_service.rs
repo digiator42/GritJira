@@ -96,6 +96,7 @@ impl ProjectService {
                 project_id: Set(project_id),
                 name: Set(step_name.to_string()),
                 position: Set(position),
+                is_completed: Set(step_name.eq_ignore_ascii_case("done")),
                 ..Default::default()
             };
             step.insert(&self.repo.db).await?;

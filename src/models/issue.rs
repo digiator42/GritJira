@@ -1,7 +1,7 @@
 use gritshield::{GritModel, GritRelation};
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
-use chrono::NaiveDateTime;
+use chrono::{NaiveDate, NaiveDateTime};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, GritModel)]
 #[sea_orm(table_name = "issues")]
@@ -23,6 +23,7 @@ pub struct Model {
     pub story_points: Option<i32>,
     pub time_estimate_minutes: Option<i32>,
     pub time_spent_minutes: i32,
+    pub due_date: Option<NaiveDate>,
     pub created_at: NaiveDateTime,
 }
 

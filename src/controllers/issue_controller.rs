@@ -632,6 +632,7 @@ storage_key.clone(),
                 payload.issue_type.as_deref(),
                 payload.story_points,
                 payload.time_estimate_minutes,
+                payload.due_date,
             )
             .await
         {

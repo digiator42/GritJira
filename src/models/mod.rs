@@ -8,6 +8,7 @@ pub mod project_member;
 pub mod activity_log;
 pub mod webhook;
 pub mod attachment;
+pub mod issue_type;
 
 pub use comment::Entity as Comment;
 pub use issue::Entity as Issue;
@@ -19,6 +20,7 @@ pub use project_member::Entity as ProjectMember;
 pub use activity_log::Entity as ActivityLog;
 pub use webhook::Entity as Webhook;
 pub use attachment::Entity as Attachment;
+pub use issue_type::Entity as IssueType;
 
 pub use comment::Model as CommentModel;
 pub use issue::Model as IssueModel;
@@ -30,3 +32,4 @@ pub use project_member::Model as ProjectMemberModel;
 pub use activity_log::Model as ActivityLogModel;
 pub use webhook::Model as WebhookModel;
 pub use attachment::Model as AttachmentModel;
+pub use issue_type::Model as IssueTypeModel;

@@ -235,6 +235,7 @@ impl IssueService {
             story_points: Set(payload.story_points),
             time_estimate_minutes: Set(payload.time_estimate_minutes),
             time_spent_minutes: Set(0),
+            due_date: Set(payload.due_date),
             created_at: Set(Utc::now().naive_utc()),
             ..Default::default()
         };
@@ -270,6 +271,7 @@ impl IssueService {
         issue_type: Option<&str>,
         story_points: Option<i32>,
         time_estimate_minutes: Option<i32>,
+        due_date: Option<chrono::NaiveDate>,
     ) -> Result<Option<issue::Model>, DbErr> {
         self.issue_repo
             .update_issue(
@@ -280,6 +282,7 @@ impl IssueService {
                 issue_type,
                 story_points,
                 time_estimate_minutes,
+                due_date,
             )
             .await
     }

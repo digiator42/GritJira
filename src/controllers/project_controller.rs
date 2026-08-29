@@ -1,11 +1,28 @@
 use gritshield::GritSanitizer;
 use gritshield::{http::response::HttpStatus, prelude::*};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::repositories::issue::IssueRepository;
+use crate::repositories::issue_type::IssueTypeRepository;
 use crate::repositories::workflow::WorkflowRepository;
 use crate::security::caps::{ProjectAdmin, ViewBoard};
 use crate::services::project_service::ProjectService;
+
+/// Jira-style default issue types (name, icon key, color) seeded per project.
+const DEFAULT_ISSUE_TYPES: &[(&str, &str, &str)] = &[
+    ("bug", "bug", "#eb5a46"),
+    ("story", "story", "#65ba43"),
+    ("task", "task", "#4bade9"),
+    ("epic", "epic", "#a25dd8"),
+    ("subtask", "subtask", "#8c9bab"),
+    ("test", "test", "#ff8b45"),
+    ("test execution", "test-execution", "#2daeb7"),
+    ("test set", "test-set", "#f6b93b"),
+    ("test plan", "test-plan", "#d9764f"),
+    ("precondition", "precondition", "#a0a4b8"),
+];
 
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
@@ -36,6 +53,92 @@ pub struct CreateWorkflowStepPayload {
 pub struct UpdateWorkflowStepPayload {
     #[serde(default)]
     pub name: Option<String>,
+}
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct CreateIssueTypePayload {
+    #[clean(trim, lowercase, html_escape)]
+    pub name: String,
+
+    #[clean(trim, lowercase)]
+    #[serde(default)]
+    pub icon_key: Option<String>,
+
+    #[clean(trim, lowercase)]
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+#[derive(Deserialize, GritSanitizer)]
+pub struct UpdateIssueTypePayload {
+    #[clean(trim, lowercase, html_escape)]
+    #[serde(default)]
+    pub name: Option<String>,
+
+    #[clean(trim, lowercase)]
+    #[serde(default)]
+    pub icon_key: Option<String>,
+
+    #[clean(trim, lowercase)]
+    #[serde(default)]
+    pub color: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct StatusBucket {
+    pub step_id: i32,
+    pub name: String,
+    pub is_completed: bool,
+    pub count: i32,
+    pub points: i32,
+}
+
+#[derive(Serialize)]
+pub struct TypeBucket {
+    pub type_name: String,
+    pub icon_key: String,
+    pub color: String,
+    pub count_open: i32,
+    pub count_total: i32,
+    pub percent: i32,
+}
+
+#[derive(Serialize)]
+pub struct ProjectSummary {
+    pub project_id: i32,
+    pub total_issues: i32,
+    pub open_issues: i32,
+    pub done_issues: i32,
+    pub total_points: i32,
+    pub open_points: i32,
+    pub by_status: Vec<StatusBucket>,
+    pub by_type: Vec<TypeBucket>,
+}
+
+fn default_type_style(issue_type: &str) -> (String, String) {
+    let key = issue_type.to_lowercase();
+    match DEFAULT_ISSUE_TYPES
+        .iter()
+        .find(|(name, _, _)| *name == key)
+    {
+        Some((_, icon, color)) => (icon.to_string(), color.to_string()),
+        None => ("task".to_string(), "#4bade9".to_string()),
+    }
+}
+
+/// Seed the Jira-style default issue types when a project has none yet.
+async fn ensure_default_issue_types(
+    repo: &IssueTypeRepository,
+    project_id: i32,
+) -> Result<(), sea_orm::DbErr> {
+    let existing = repo.find_by_project(project_id).await?;
+    if !existing.is_empty() {
+        return Ok(());
+    }
+    for (name, icon, color) in DEFAULT_ISSUE_TYPES {
+        repo.create(project_id, name, icon, color).await?;
+    }
+    Ok(())
 }
 
 pub struct ProjectController;
@@ -439,5 +542,302 @@ impl ProjectController {
             Ok(false) => Response::not_found("Step not found"),
             Err(e) => Response::bad_request(format!("Failed to delete step: {}", e)),
         }
+    }
+
+    // ======================================================
+    // Issue Types API (per project)
+    // ======================================================
+
+    /// GET /api/v1/projects/:id/issue-types - List issue types (seeding the
+    /// Jira-style defaults the first time a project has none).
+    #[get("/:id/issue-types")]
+    #[cap(ViewBoard)]
+    pub async fn get_issue_types(
+        ctx: RequestContext,
+        issue_type_repo: Arc<IssueTypeRepository>,
+    ) -> Response {
+        let project_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
+
+        if let Err(e) = ensure_default_issue_types(&issue_type_repo, project_id).await {
+            return Response::internal_error(format!("Failed to seed issue types: {}", e));
+        }
+
+        match issue_type_repo.find_by_project(project_id).await {
+            Ok(types) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: types,
+                },
+            ),
+            Err(e) => Response::internal_error(format!("Failed to fetch issue types: {}", e)),
+        }
+    }
+
+    /// POST /api/v1/projects/:id/issue-types - Add a custom issue type
+    #[post("/:id/issue-types")]
+    #[cap(ProjectAdmin)]
+    pub async fn create_issue_type(
+        ctx: RequestContext,
+        issue_type_repo: Arc<IssueTypeRepository>,
+    ) -> Response {
+        let project_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
+
+        let payload = match ctx.json::<CreateIssueTypePayload>().await {
+            Ok(p) => p,
+            Err(e) => return Response::bad_request(format!("Invalid issue type payload: {:?}", e)),
+        };
+
+        if payload.name.trim().is_empty() {
+            return Response::bad_request("Issue type name is required");
+        }
+
+        let (icon_key, color) = (
+            payload.icon_key.as_deref().unwrap_or("task"),
+            payload.color.as_deref().unwrap_or("#4bade9"),
+        );
+
+        match issue_type_repo
+            .create(project_id, &payload.name, icon_key, color)
+            .await
+        {
+            Ok(issue_type) => Response::json(
+                HttpStatus::Created,
+                &ApiResponse {
+                    success: true,
+                    data: issue_type,
+                },
+            ),
+            Err(e) => {
+                if e.to_string().contains("duplicate") {
+                    Response::bad_request("An issue type with this name already exists")
+                } else {
+                    Response::internal_error(format!("Failed to create issue type: {}", e))
+                }
+            }
+        }
+    }
+
+    /// PATCH /api/v1/projects/:project_id/issue-types/:type_id - Update an issue type
+    #[patch("/:project_id/issue-types/:type_id")]
+    #[cap(ProjectAdmin)]
+    pub async fn update_issue_type(
+        ctx: RequestContext,
+        issue_type_repo: Arc<IssueTypeRepository>,
+    ) -> Response {
+        let type_id: i32 = match ctx.params.get("type_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue type ID"),
+        };
+
+        let payload = match ctx.json::<UpdateIssueTypePayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid issue type payload"),
+        };
+
+        match issue_type_repo
+            .update_type(
+                type_id,
+                payload.name.as_deref(),
+                payload.icon_key.as_deref(),
+                payload.color.as_deref(),
+            )
+            .await
+        {
+            Ok(Some(issue_type)) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: issue_type,
+                },
+            ),
+            Ok(None) => Response::not_found("Issue type not found"),
+            Err(e) => Response::bad_request(format!("Failed to update issue type: {}", e)),
+        }
+    }
+
+    /// DELETE /api/v1/projects/:project_id/issue-types/:type_id - Delete an issue type
+    #[delete("/:project_id/issue-types/:type_id")]
+    #[cap(ProjectAdmin)]
+    pub async fn delete_issue_type(
+        ctx: RequestContext,
+        issue_type_repo: Arc<IssueTypeRepository>,
+    ) -> Response {
+        let type_id: i32 = match ctx.params.get("type_id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue type ID"),
+        };
+
+        match issue_type_repo.delete_type(type_id).await {
+            Ok(true) => Response::json(
+                HttpStatus::Ok,
+                &ApiResponse {
+                    success: true,
+                    data: "Issue type deleted",
+                },
+            ),
+            Ok(false) => Response::not_found("Issue type not found"),
+            Err(e) => Response::bad_request(format!("Failed to delete issue type: {}", e)),
+        }
+    }
+
+    // ======================================================
+    // Project Summary API
+    // ======================================================
+
+    /// GET /api/v1/projects/:id/summary - Status + "Types of work" aggregation
+    #[get("/:id/summary")]
+    #[cap(ViewBoard)]
+    pub async fn get_project_summary(
+        ctx: RequestContext,
+        workflow_repo: Arc<WorkflowRepository>,
+        issue_repo: Arc<IssueRepository>,
+        issue_type_repo: Arc<IssueTypeRepository>,
+    ) -> Response {
+        let project_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid project ID"),
+        };
+
+        // Seed defaults so the summary always shows the full type catalog.
+        let _ = ensure_default_issue_types(&issue_type_repo, project_id).await;
+
+        let steps = match workflow_repo.find_steps_by_project(project_id).await {
+            Ok(steps) => steps,
+            Err(e) => return Response::internal_error(format!("Failed to fetch workflow: {}", e)),
+        };
+        let issues = match issue_repo.find_by_project(project_id).await {
+            Ok(issues) => issues,
+            Err(e) => return Response::internal_error(format!("Failed to fetch issues: {}", e)),
+        };
+        let types = match issue_type_repo.find_by_project(project_id).await {
+            Ok(types) => types,
+            Err(e) => return Response::internal_error(format!("Failed to fetch issue types: {}", e)),
+        };
+
+        // step_id -> completion flag. Fall back to the last column as "done"
+        // when the workflow has no step flagged completed (mirrors burndown).
+        let mut step_map: HashMap<i32, bool> = HashMap::new();
+        let has_completed = steps.iter().any(|s| s.is_completed);
+        for step in &steps {
+            step_map.insert(step.id, step.is_completed);
+        }
+        if !has_completed {
+            if let Some(last) = steps.iter().max_by_key(|s| (s.position, s.id)) {
+                step_map.insert(last.id, true);
+            }
+        }
+
+        // by_status buckets for every column (zero-filled)
+        let mut by_status: Vec<StatusBucket> = steps
+            .iter()
+            .map(|s| StatusBucket {
+                step_id: s.id,
+                name: s.name.clone(),
+                is_completed: s.is_completed,
+                count: 0,
+                points: 0,
+            })
+            .collect();
+
+        // by_type buckets keyed by the stored issue_type string
+        let mut type_buckets: HashMap<String, TypeBucket> = HashMap::new();
+
+        let mut total_issues = 0;
+        let mut open_issues = 0;
+        let mut total_points = 0;
+        let mut open_points = 0;
+
+        for issue in &issues {
+            let is_done = step_map.get(&issue.step_id).copied().unwrap_or(false);
+            let points = issue.story_points.unwrap_or(0);
+
+            total_issues += 1;
+            total_points += points;
+
+            if let Some(bucket) = by_status.iter_mut().find(|b| b.step_id == issue.step_id) {
+                bucket.count += 1;
+                bucket.points += points;
+            }
+
+            let (icon_key, color) = default_type_style(&issue.issue_type);
+            let bucket = type_buckets
+                .entry(issue.issue_type.clone())
+                .or_insert_with(|| TypeBucket {
+                    type_name: issue.issue_type.clone(),
+                    icon_key,
+                    color,
+                    count_open: 0,
+                    count_total: 0,
+                    percent: 0,
+                });
+            bucket.count_total += 1;
+            if !is_done {
+                open_issues += 1;
+                open_points += points;
+                bucket.count_open += 1;
+            }
+        }
+
+        // Overlay catalog icon/color for known types and fold in empty catalog
+        // types so the "Types of work" gadget lists the configured set.
+        for t in &types {
+            if let Some(bucket) = type_buckets.get_mut(&t.name) {
+                bucket.icon_key = t.icon_key.clone();
+                bucket.color = t.color.clone();
+            }
+        }
+        for t in &types {
+            if !type_buckets.contains_key(&t.name) {
+                type_buckets.insert(
+                    t.name.clone(),
+                    TypeBucket {
+                        type_name: t.name.clone(),
+                        icon_key: t.icon_key.clone(),
+                        color: t.color.clone(),
+                        count_open: 0,
+                        count_total: 0,
+                        percent: 0,
+                    },
+                );
+            }
+        }
+
+        let mut by_type: Vec<TypeBucket> = type_buckets.into_values().collect();
+        by_type.sort_by(|a, b| {
+            let ac = a.count_open + a.count_total;
+            let bc = b.count_open + b.count_total;
+            bc.cmp(&ac).then_with(|| a.type_name.cmp(&b.type_name))
+        });
+
+        let open_total = open_issues.max(1);
+        for bucket in by_type.iter_mut() {
+            bucket.percent = ((bucket.count_open as f32 / open_total as f32) * 100.0).round() as i32;
+        }
+
+        let summary = ProjectSummary {
+            project_id,
+            total_issues,
+            open_issues,
+            done_issues: total_issues - open_issues,
+            total_points,
+            open_points,
+            by_status,
+            by_type,
+        };
+
+        Response::json(
+            HttpStatus::Ok,
+            &ApiResponse {
+                success: true,
+                data: summary,
+            },
+        )
     }
 }

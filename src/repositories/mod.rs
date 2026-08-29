@@ -8,3 +8,4 @@ pub mod project_member;
 pub mod activity_log;
 pub mod webhook;
 pub mod attachment;
+pub mod issue_type;

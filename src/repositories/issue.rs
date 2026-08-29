@@ -18,6 +18,7 @@ use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, EntityTrait, Set};
         "priority",
         "issue_type",
         "story_points",
+        "due_date",
         "created_at",
     ],
     read_only = ["created_at"]
@@ -85,6 +86,21 @@ impl IssueRepository {
         self.query()
             .where_eq(issue::Column::StepId, step_id)
             .fetch()
+            .await
+    }
+
+    /// Fetch all issues for a project ordered by most recent
+    pub async fn find_by_project(
+        &self,
+        project_id: i32,
+    ) -> Result<Vec<issue::Model>, DbErr> {
+        use crate::models::issue::{self, Entity as Issue};
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
+
+        Issue::find()
+            .filter(issue::Column::ProjectId.eq(project_id))
+            .order_by_asc(issue::Column::Id)
+            .all(&self.db)
             .await
     }
 
@@ -190,6 +206,7 @@ impl IssueRepository {
         issue_type: Option<&str>,
         story_points: Option<i32>,
         time_estimate_minutes: Option<i32>,
+        due_date: Option<chrono::NaiveDate>,
     ) -> Result<Option<issue::Model>, DbErr> {
         use crate::models::issue::{self, Entity as Issue};
 
@@ -214,6 +231,9 @@ impl IssueRepository {
             }
             if let Some(estimate) = time_estimate_minutes {
                 active.time_estimate_minutes = Set(Some(estimate.max(0)));
+            }
+            if due_date.is_some() {
+                active.due_date = Set(due_date);
             }
             let updated = active.update(&self.db).await?;
             Ok(Some(updated))

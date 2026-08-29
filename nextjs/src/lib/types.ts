@@ -43,6 +43,7 @@ export interface Issue {
   story_points: number | null;
   time_estimate_minutes: number | null;
   time_spent_minutes: number;
+  due_date: string | null;
   created_at: string;
 }
 
@@ -140,6 +141,16 @@ export interface Webhook {
   created_at: string;
 }
 
+export interface IssueType {
+  id: number;
+  project_id: number;
+  name: string;
+  icon_key: string;
+  color: string;
+  position: number;
+  created_at: string;
+}
+
 export const WEBHOOK_EVENTS = [
   { value: "issue.created", label: "Issue created" },
   { value: "issue.updated", label: "Issue updated" },
@@ -217,5 +228,45 @@ export const ISSUE_TYPES = [
   "epic",
   "subtask",
 ];
+
+// Icons/colors matching the backend's seeded Jira-style default issue types.
+export const DEFAULT_ISSUE_TYPE_STYLES: Record<string, { icon_key: string; color: string }> = {
+  bug: { icon_key: "bug", color: "#eb5a46" },
+  story: { icon_key: "story", color: "#65ba43" },
+  task: { icon_key: "task", color: "#4bade9" },
+  epic: { icon_key: "epic", color: "#a25dd8" },
+  subtask: { icon_key: "subtask", color: "#8c9bab" },
+  test: { icon_key: "test", color: "#ff8b45" },
+  "test execution": { icon_key: "test-execution", color: "#2daeb7" },
+  "test set": { icon_key: "test-set", color: "#f6b93b" },
+  "test plan": { icon_key: "test-plan", color: "#d9764f" },
+  precondition: { icon_key: "precondition", color: "#a0a4b8" },
+};
+
+export const FALLBACK_ISSUE_TYPE_STYLE = { icon_key: "task", color: "#4bade9" };
+
+export interface ProjectSummary {
+  project_id: number;
+  total_issues: number;
+  open_issues: number;
+  done_issues: number;
+  total_points: number;
+  open_points: number;
+  by_status: {
+    step_id: number;
+    name: string;
+    is_completed: boolean;
+    count: number;
+    points: number;
+  }[];
+  by_type: {
+    type_name: string;
+    icon_key: string;
+    color: string;
+    count_open: number;
+    count_total: number;
+    percent: number;
+  }[];
+}
 
 export const MEMBER_ROLES = ["Admin", "Manager", "Developer", "Tester", "Viewer"];

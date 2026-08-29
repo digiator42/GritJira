@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { useApp } from "@/lib/AppContext";
-import { ISSUE_TYPES, PRIORITIES } from "@/lib/types";
+import { PRIORITIES } from "@/lib/types";
 import { Field } from "./ui";
 
 export function IssueCreateForm({
@@ -15,13 +15,14 @@ export function IssueCreateForm({
   sprintId?: number;
   onCreated: () => void;
 }) {
-  const { users } = useApp();
+  const { users, issueTypes } = useApp();
   const [summary, setSummary] = useState("");
   const [description, setDescription] = useState("");
   const [issueType, setIssueType] = useState("story");
   const [priority, setPriority] = useState("3");
   const [storyPoints, setStoryPoints] = useState("");
   const [estimate, setEstimate] = useState("");
+  const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,6 +42,7 @@ export function IssueCreateForm({
           sprint_id: sprintId ?? null,
           story_points: storyPoints ? Number(storyPoints) : null,
           time_estimate_minutes: estimate ? Number(estimate) : null,
+          due_date: dueDate || null,
           assignee_id: assigneeId ? Number(assigneeId) : null,
         },
       });
@@ -76,11 +78,13 @@ export function IssueCreateForm({
       <div className="grid grid-cols-2 gap-3">
         <Field label="Type">
           <select className="input" value={issueType} onChange={(e) => setIssueType(e.target.value)}>
-            {ISSUE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
+            {(issueTypes.length > 0 ? issueTypes : [{ id: 0, name: "story" }, { id: 0, name: "bug" }, { id: 0, name: "task" }]).map(
+              (t) => (
+                <option key={`${t.id}-${t.name}`} value={t.name}>
+                  {t.name}
+                </option>
+              ),
+            )}
           </select>
         </Field>
         <Field label="Priority">
@@ -109,6 +113,14 @@ export function IssueCreateForm({
               </option>
             ))}
           </select>
+        </Field>
+        <Field label="Due date">
+          <input
+            type="date"
+            className="input"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
         </Field>
         <Field label="Story points">
           <input
