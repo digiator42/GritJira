@@ -1,0 +1,2 @@
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS time_estimate_minutes INT;
+ALTER TABLE issues ADD COLUMN IF NOT EXISTS time_spent_minutes INT NOT NULL DEFAULT 0;

@@ -1,19 +1,22 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
       colors: {
         jira: {
-          blue: "#0052cc",
-          "blue-hover": "#0747a6",
-          bg: "#0f1216",
-          panel: "#161a21",
-          border: "#232931",
-          text: "#d9e0e8",
-          muted: "#8b99a7",
-          faint: "#5c6b7a",
+          blue: "var(--jira-blue)",
+          "blue-hover": "var(--jira-blue-hover)",
+          bg: "var(--jira-bg)",
+          panel: "var(--jira-panel)",
+          card: "var(--jira-card)",
+          "card-hover": "var(--jira-card-hover)",
+          border: "var(--jira-border)",
+          text: "var(--jira-text)",
+          muted: "var(--jira-muted)",
+          faint: "var(--jira-faint)",
         },
       },
       fontFamily: {

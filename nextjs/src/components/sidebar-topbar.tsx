@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/lib/AppContext";
 import { Avatar } from "./ui";
+import { ThemeToggle } from "./ThemeToggle";
 import { initials } from "@/lib/format";
 
 const PALETTE = ["#3b82f6", "#a855f7", "#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#ec4899"];
@@ -142,7 +143,13 @@ const SETTINGS = [
   { href: "/settings/workflow", label: "Workflow" },
 ];
 
-export function Sidebar({ pathname }: { pathname: string }) {
+function SidebarContent({
+  pathname,
+  onNavigate,
+}: {
+  pathname: string;
+  onNavigate?: () => void;
+}) {
   const { me } = useApp();
   const isActive = (href: string) =>
     href === "/board"
@@ -150,10 +157,11 @@ export function Sidebar({ pathname }: { pathname: string }) {
       : pathname.startsWith(href) || (href === "/projects" && pathname.startsWith("/projects"));
 
   return (
-    <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-jira-border bg-jira-panel px-3 py-4">
+    <>
       <div className="mb-5 flex items-center gap-2 px-2">
         <Link
           href="/board"
+          onClick={onNavigate}
           className="flex h-7 w-7 items-center justify-center rounded bg-jira-blue text-sm font-bold text-white"
         >
           G
@@ -168,6 +176,7 @@ export function Sidebar({ pathname }: { pathname: string }) {
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             className={`rounded-md px-2 py-1.5 text-sm transition ${
               isActive(item.href)
                 ? "bg-jira-blue/20 font-medium text-white"
@@ -185,6 +194,7 @@ export function Sidebar({ pathname }: { pathname: string }) {
           <Link
             key={item.href}
             href={item.href}
+            onClick={onNavigate}
             className={`rounded-md px-2 py-1.5 text-sm transition ${
               pathname.startsWith(item.href)
                 ? "bg-jira-blue/20 font-medium text-white"
@@ -205,11 +215,37 @@ export function Sidebar({ pathname }: { pathname: string }) {
           </div>
         </div>
       ) : null}
-    </aside>
+    </>
   );
 }
 
-export function Topbar() {
+export function Sidebar({
+  pathname,
+  mobileOpen,
+  onClose,
+}: {
+  pathname: string;
+  mobileOpen?: boolean;
+  onClose?: () => void;
+}) {
+  return (
+    <>
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-jira-border bg-jira-panel px-3 py-4 md:flex">
+        <SidebarContent pathname={pathname} />
+      </aside>
+      {mobileOpen ? (
+        <div className="fixed inset-0 z-40 md:hidden">
+          <div className="absolute inset-0 bg-black/60" onClick={onClose} aria-hidden />
+          <aside className="absolute inset-y-0 left-0 mr-10 flex w-64 flex-col border-r border-jira-border bg-jira-panel px-3 py-4 shadow-2xl">
+            <SidebarContent pathname={pathname} onNavigate={onClose} />
+          </aside>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+export function Topbar({ onMenu }: { onMenu?: () => void }) {
   const { me, currentProject } = useApp();
   const router = useRouter();
   const [unread, setUnread] = useState(0);
@@ -241,17 +277,27 @@ export function Topbar() {
     );
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-jira-border bg-jira-panel px-4">
+    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-jira-border bg-jira-panel px-3 sm:gap-3 sm:px-4">
+      <button
+        type="button"
+        onClick={onMenu}
+        aria-label="Open navigation menu"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-jira-border text-jira-muted transition hover:border-jira-blue/50 hover:text-jira-text md:hidden"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <path d="M3 6h18M3 12h18M3 18h18" />
+        </svg>
+      </button>
       <div className="flex flex-1 items-center gap-2">
         <Link
           href="/board"
-          className="rounded-md px-2 py-1 text-sm font-medium text-jira-muted transition hover:bg-jira-border/40 hover:text-jira-text"
+          className="hidden rounded-md px-2 py-1 text-sm font-medium text-jira-muted transition hover:bg-jira-border/40 hover:text-jira-text md:inline-flex"
         >
           Dashboard
         </Link>
         <Link
           href="/projects"
-          className="rounded-md px-2 py-1 text-sm font-medium text-jira-muted transition hover:bg-jira-border/40 hover:text-jira-text"
+          className="hidden rounded-md px-2 py-1 text-sm font-medium text-jira-muted transition hover:bg-jira-border/40 hover:text-jira-text md:inline-flex"
         >
           Projects
         </Link>
@@ -262,11 +308,14 @@ export function Topbar() {
         onClick={openPalette}
         className="flex items-center gap-2 rounded-md border border-jira-border bg-jira-bg px-3 py-1.5 text-sm text-jira-faint transition hover:border-jira-blue/50"
       >
-        <span>⌕</span> Search…
-        <kbd className="rounded border border-jira-border bg-jira-panel px-1 text-[10px] text-jira-muted">
+        <span>⌕</span>
+        <span className="hidden sm:inline">Search…</span>
+        <kbd className="hidden rounded border border-jira-border bg-jira-panel px-1 text-[10px] text-jira-muted sm:block">
           Ctrl K
         </kbd>
       </button>
+
+      <ThemeToggle />
 
       <Link
         href="/notifications"

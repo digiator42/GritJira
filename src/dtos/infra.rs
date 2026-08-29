@@ -26,6 +26,9 @@ pub struct CreateIssuePayload {
     pub story_points: Option<i32>,
 
     #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
+    pub time_estimate_minutes: Option<i32>,
+
+    #[serde(default, deserialize_with = "deserialize_option_number_from_string")]
     pub assignee_id: Option<i32>,
 
     #[clean(trim)]
@@ -68,7 +71,11 @@ pub struct MoveIssuePayload {
     pub position: Option<i32>,
 }
 
-// ============================================================
+#[derive(Deserialize, GritSanitizer)]
+pub struct LogTimePayload {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub minutes: i32,
+}
 // 3. Issue Update Payload
 // ============================================================
 #[derive(Deserialize, GritSanitizer)]
@@ -86,6 +93,9 @@ pub struct UpdateIssuePayload {
     #[serde(default)]
     pub issue_type: Option<String>,
 
-    #[serde(default)]
+#[serde(default)]
     pub story_points: Option<i32>,
+
+    #[serde(default)]
+    pub time_estimate_minutes: Option<i32>,
 }

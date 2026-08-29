@@ -31,7 +31,7 @@ export function IssueCard({
       onDrop={onDrop}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className="group cursor-pointer rounded-md border border-jira-border bg-[#1c2129] p-2.5 transition hover:border-jira-blue/60 hover:bg-[#20262f]"
+      className="group cursor-pointer rounded-md border border-jira-border bg-jira-card p-2.5 transition hover:border-jira-blue/60 hover:bg-jira-card-hover"
       title={decodeEntities(issue.summary)}
     >
       <div className="mb-1.5 flex items-start justify-between gap-2">

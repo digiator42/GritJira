@@ -66,6 +66,36 @@ export function IssueDetailClient({ id }: { id: number }) {
     }
   }, [issue, drafts]);
 
+  const [timeDraft, setTimeDraft] = useState<{ estimate: string; log: string }>({
+    estimate: "",
+    log: "",
+  });
+
+  useEffect(() => {
+    if (issue) {
+      setTimeDraft((t) => ({
+        ...t,
+        estimate: issue.time_estimate_minutes != null ? String(issue.time_estimate_minutes) : "",
+      }));
+    }
+  }, [id]);
+
+  async function logTime() {
+    const mins = Number(timeDraft.log);
+    if (!mins || mins <= 0) return;
+    try {
+      const r = await api<{ data: Issue }>(`/api/v1/issues/${id}/time`, {
+        method: "POST",
+        json: { minutes: mins },
+      });
+      setDetail((d) => (d ? { ...d, issue: r.data } : d));
+      setTimeDraft((t) => ({ ...t, log: "" }));
+      setError(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "Log time failed");
+    }
+  }
+
   if (loading && !detail) {
     return (
       <div className="p-4">
@@ -340,6 +370,61 @@ export function IssueDetailClient({ id }: { id: number }) {
                 />
               </Field>
             </div>
+            <div className="mt-3">
+              <Field label="Original estimate">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    className="input"
+                    value={timeDraft.estimate}
+                    onChange={(e) =>
+                      setTimeDraft((t) => ({ ...t, estimate: e.target.value }))
+                    }
+                    onBlur={() => {
+                      const v =
+                        timeDraft.estimate === "" ? null : Number(timeDraft.estimate);
+                      if (v !== issue.time_estimate_minutes) void patch({ time_estimate_minutes: v });
+                    }}
+                    placeholder="minutes"
+                  />
+                  <span className="shrink-0 text-xs text-jira-faint">{fmtMins(issue.time_estimate_minutes)}</span>
+                </div>
+              </Field>
+            </div>
+            <div className="mt-3">
+              <Field label="Time spent">
+                <p className="text-sm text-jira-text">{fmtMins(issue.time_spent_minutes)} logged</p>
+                <p className="mt-0.5 text-[11px] text-jira-faint">
+                  Remaining:{" "}
+                  {fmtMins(
+                    (issue.time_estimate_minutes ?? 0) - issue.time_spent_minutes,
+                  )}
+                </p>
+              </Field>
+            </div>
+            <div className="mt-3">
+              <Field label="Log time">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    className="input"
+                    value={timeDraft.log}
+                    onChange={(e) => setTimeDraft((t) => ({ ...t, log: e.target.value }))}
+                    placeholder="minutes"
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary !py-2"
+                    disabled={timeDraft.log === ""}
+                    onClick={() => void logTime()}
+                  >
+                    Log
+                  </button>
+                </div>
+              </Field>
+            </div>
           </div>
 
           <div className="panel p-3 text-xs text-jira-faint">
@@ -354,6 +439,14 @@ export function IssueDetailClient({ id }: { id: number }) {
       </div>
     </div>
   );
+}
+
+function fmtMins(m: number | null | undefined): string {
+  if (m == null) return "–";
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  if (h === 0) return `${mm}m`;
+  return mm === 0 ? `${h}h` : `${h}h ${mm}m`;
 }
 
 function CommentForm({ onSubmit }: { onSubmit: (body: string) => Promise<void> }) {

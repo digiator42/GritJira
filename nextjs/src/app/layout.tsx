@@ -14,6 +14,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("gritjira-theme")||"dark";document.documentElement.className=t==="light"?"light":"dark";}catch(e){document.documentElement.className="dark";}})();`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

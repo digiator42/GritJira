@@ -233,6 +233,8 @@ impl IssueService {
             assignee_id: Set(payload.assignee_id),
             sprint_id: Set(payload.sprint_id),
             story_points: Set(payload.story_points),
+            time_estimate_minutes: Set(payload.time_estimate_minutes),
+            time_spent_minutes: Set(0),
             created_at: Set(Utc::now().naive_utc()),
             ..Default::default()
         };
@@ -267,10 +269,24 @@ impl IssueService {
         priority: Option<i32>,
         issue_type: Option<&str>,
         story_points: Option<i32>,
+        time_estimate_minutes: Option<i32>,
     ) -> Result<Option<issue::Model>, DbErr> {
         self.issue_repo
-            .update_issue(issue_id, summary, description, priority, issue_type, story_points)
+            .update_issue(
+                issue_id,
+                summary,
+                description,
+                priority,
+                issue_type,
+                story_points,
+                time_estimate_minutes,
+            )
             .await
+    }
+
+    /// Log time against an issue, accumulating into time_spent_minutes
+    pub async fn log_time(&self, issue_id: i32, minutes: i32) -> Result<Option<issue::Model>, DbErr> {
+        self.issue_repo.log_time(issue_id, minutes).await
     }
 
     /// Delete issue

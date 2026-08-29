@@ -189,6 +189,7 @@ impl IssueRepository {
         priority: Option<i32>,
         issue_type: Option<&str>,
         story_points: Option<i32>,
+        time_estimate_minutes: Option<i32>,
     ) -> Result<Option<issue::Model>, DbErr> {
         use crate::models::issue::{self, Entity as Issue};
 
@@ -211,6 +212,31 @@ impl IssueRepository {
             if let Some(story_points) = story_points {
                 active.story_points = Set(Some(story_points));
             }
+            if let Some(estimate) = time_estimate_minutes {
+                active.time_estimate_minutes = Set(Some(estimate.max(0)));
+            }
+            let updated = active.update(&self.db).await?;
+            Ok(Some(updated))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Logs time against an issue, accumulating into time_spent_minutes
+    pub async fn log_time(
+        &self,
+        issue_id: i32,
+        minutes: i32,
+    ) -> Result<Option<issue::Model>, DbErr> {
+        use crate::models::issue::{self, Entity as Issue};
+
+        let issue = Issue::find_by_id(issue_id).one(&self.db).await?;
+
+        if let Some(i) = issue {
+            let base = i.time_spent_minutes;
+            let mut active: issue::ActiveModel = i.into();
+            let logged = minutes.max(0);
+            active.time_spent_minutes = Set(base + logged);
             let updated = active.update(&self.db).await?;
             Ok(Some(updated))
         } else {

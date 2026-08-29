@@ -41,6 +41,8 @@ export interface Issue {
   priority: number;
   issue_type: string;
   story_points: number | null;
+  time_estimate_minutes: number | null;
+  time_spent_minutes: number;
   created_at: string;
 }
 

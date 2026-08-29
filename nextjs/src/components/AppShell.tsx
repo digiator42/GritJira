@@ -13,6 +13,7 @@ type Phase = "loading" | "anon" | "ok";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [phase, setPhase] = useState<Phase>("loading");
+  const [mobileNav, setMobileNav] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
 
@@ -43,6 +44,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [phase, router]);
 
+  useEffect(() => {
+    setMobileNav(false);
+  }, [pathname]);
+
   if (phase === "loading") {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -58,9 +63,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <AppProvider>
       <div className="flex h-screen overflow-hidden bg-jira-bg">
-        <Sidebar pathname={pathname} />
+        <Sidebar pathname={pathname} mobileOpen={mobileNav} onClose={() => setMobileNav(false)} />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Topbar />
+          <Topbar onMenu={() => setMobileNav(true)} />
           <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>

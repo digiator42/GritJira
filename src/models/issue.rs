@@ -21,6 +21,8 @@ pub struct Model {
     pub priority: String,
     pub issue_type: String,
     pub story_points: Option<i32>,
+    pub time_estimate_minutes: Option<i32>,
+    pub time_spent_minutes: i32,
     pub created_at: NaiveDateTime,
 }
 

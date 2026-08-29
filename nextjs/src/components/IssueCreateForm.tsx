@@ -21,6 +21,7 @@ export function IssueCreateForm({
   const [issueType, setIssueType] = useState("story");
   const [priority, setPriority] = useState("3");
   const [storyPoints, setStoryPoints] = useState("");
+  const [estimate, setEstimate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -39,6 +40,7 @@ export function IssueCreateForm({
           priority: Number(priority),
           sprint_id: sprintId ?? null,
           story_points: storyPoints ? Number(storyPoints) : null,
+          time_estimate_minutes: estimate ? Number(estimate) : null,
           assignee_id: assigneeId ? Number(assigneeId) : null,
         },
       });
@@ -116,6 +118,16 @@ export function IssueCreateForm({
             value={storyPoints}
             onChange={(e) => setStoryPoints(e.target.value)}
             placeholder="e.g. 3"
+          />
+        </Field>
+        <Field label="Estimate (min)">
+          <input
+            type="number"
+            min={0}
+            className="input"
+            value={estimate}
+            onChange={(e) => setEstimate(e.target.value)}
+            placeholder="e.g. 240"
           />
         </Field>
       </div>

@@ -1,5 +1,7 @@
 use crate::controllers::{get_project_context, get_project_key};
-use crate::dtos::{AddCommentPayload, CreateIssuePayload, MoveIssuePayload, UpdateIssuePayload};
+use crate::dtos::{
+    AddCommentPayload, CreateIssuePayload, LogTimePayload, MoveIssuePayload, UpdateIssuePayload,
+};
 use crate::models::comment;
 use crate::repositories::activity_log::ActivityLogRepository;
 use crate::repositories::comment::CommentRepository;
@@ -351,6 +353,56 @@ impl IssueController {
         }
     }
 
+    /// POST /api/v1/issues/:id/time - Log time against an issue
+    #[post("/:id/time")]
+    #[cap(IssueEdit)]
+    pub async fn log_time(
+        ctx: RequestContext,
+        issue_service: Arc<IssueService>,
+        activity_log_repo: Arc<ActivityLogRepository>,
+    ) -> Response {
+        let issue_id: i32 = match ctx.params.get("id").and_then(|p| p.parse().ok()) {
+            Some(id) => id,
+            None => return Response::bad_request("Invalid issue ID"),
+        };
+
+        let payload = match ctx.json::<LogTimePayload>().await {
+            Ok(p) => p,
+            Err(_) => return Response::bad_request("Invalid log-time payload"),
+        };
+
+        let actor_id = ctx
+            .get_session_data("user_id")
+            .and_then(|id| id.parse().ok())
+            .unwrap_or(1);
+
+        match issue_service.log_time(issue_id, payload.minutes).await {
+            Ok(Some(issue)) => {
+                let _ = activity_log_repo
+                    .record(
+                        issue.project_id,
+                        actor_id,
+                        "time.logged",
+                        Some(issue.id),
+                        Some(&issue.key),
+                        Some(&issue.summary),
+                        Some(&format!("{}m logged", payload.minutes)),
+                        None,
+                    )
+                    .await;
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: issue,
+                    },
+                )
+            }
+            Ok(None) => Response::not_found("Issue not found"),
+            Err(e) => Response::bad_request(format!("Failed to log time: {}", e)),
+        }
+    }
+
     /// DELETE /api/v1/issues/:id - Delete an issue
     #[delete("/:id")]
     #[cap(IssueEdit)]
@@ -430,6 +482,7 @@ impl IssueController {
                 payload.priority,
                 payload.issue_type.as_deref(),
                 payload.story_points,
+                payload.time_estimate_minutes,
             )
             .await
         {
