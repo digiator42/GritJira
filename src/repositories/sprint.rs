@@ -1,11 +1,11 @@
 use crate::models::{SprintModel, sprint};
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use gritshield::database::GritRepository;
 use gritshield::{GritAdmin, GritComponent};
 use sea_orm::ActiveModelTrait;
 use sea_orm::EntityTrait;
 use sprint::ActiveModel;
-use sea_orm::ActiveValue::Set;
+use sea_orm::ActiveValue::{NotSet, Set, Unchanged};
 use sea_orm::{DatabaseConnection, DbErr};
 
 #[derive(Clone, GritAdmin, GritComponent)]
@@ -42,7 +42,16 @@ impl SprintRepository {
         if let Some(s) = sprint {
             let mut active: sprint::ActiveModel = s.into();
             active.status = Set("active".to_string());
-            active.start_date = Set(Some(Utc::now().naive_utc()));
+            let now = Utc::now().naive_utc();
+            active.start_date = Set(Some(now));
+            let deadline = match &active.end_date {
+                NotSet => None,
+                Unchanged(v) => v.clone(),
+                Set(v) => v.clone(),
+            };
+            if deadline.is_none() {
+                active.end_date = Set(Some(now + Duration::days(14)));
+            }
             active.update(&self.db).await
         } else {
             Err(DbErr::RecordNotFound("Sprint not found".to_string()))
