@@ -9,8 +9,9 @@ import { formatDate } from "@/lib/format";
 import { MEMBER_ROLES } from "@/lib/types";
 
 export function UsersSettingsClient() {
-  const { currentProject, users } = useApp();
+  const { me, currentProject, users } = useApp();
   const projectId = currentProject?.id;
+  const isAdmin = me?.role === "Admin";
 
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +78,14 @@ export function UsersSettingsClient() {
       {error ? <ErrorBox message={error} /> : null}
       {loading && members.length === 0 ? <Spinner label="Loading members…" /> : null}
 
-      <AddMember users={unassigned} projectId={projectId} onAdded={load} />
+      {isAdmin ? (
+        <AddMember users={unassigned} projectId={projectId} onAdded={load} />
+      ) : (
+        <div className="panel p-3 text-xs text-jira-faint">
+          You have read-only access to this project&apos;s members. Only project admins can add
+          members or change roles.
+        </div>
+      )}
 
       <section className="panel mt-4 overflow-hidden">
         {members.length === 0 ? (
@@ -89,7 +97,7 @@ export function UsersSettingsClient() {
                 <th className="th">User</th>
                 <th className="th">Role</th>
                 <th className="th">Joined</th>
-                <th className="th text-right">Actions</th>
+                {isAdmin ? <th className="th text-right">Actions</th> : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-jira-border/60">
@@ -102,27 +110,33 @@ export function UsersSettingsClient() {
                     </div>
                   </td>
                   <td className="td">
-                    <select
-                      className="input !w-auto !py-1 !text-xs"
-                      value={m.role}
-                      onChange={(e) => void changeRole(m.id, e.target.value)}
-                    >
-                      {MEMBER_ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
+                    {isAdmin ? (
+                      <select
+                        className="input !w-auto !py-1 !text-xs"
+                        value={m.role}
+                        onChange={(e) => void changeRole(m.id, e.target.value)}
+                      >
+                        {MEMBER_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {r}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs capitalize text-jira-muted">{m.role}</span>
+                    )}
                   </td>
                   <td className="td text-jira-faint">{formatDate(m.joined_at)}</td>
-                  <td className="td text-right">
-                    <button
-                      className="text-xs text-jira-faint transition hover:text-red-400"
-                      onClick={() => void remove(m)}
-                    >
-                      Remove
-                    </button>
-                  </td>
+                  {isAdmin ? (
+                    <td className="td text-right">
+                      <button
+                        className="text-xs text-jira-faint transition hover:text-red-400"
+                        onClick={() => void remove(m)}
+                      >
+                        Remove
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))}
             </tbody>

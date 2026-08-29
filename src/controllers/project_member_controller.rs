@@ -10,7 +10,7 @@ use serde_aux::field_attributes::deserialize_number_from_string;
 
 use crate::repositories::project_member::ProjectMemberRepository;
 use crate::repositories::user::UserRepository;
-use crate::security::caps::ProjectAdmin;
+use crate::security::caps::{ProjectAdmin, ViewBoard};
 
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
@@ -30,8 +30,10 @@ pub struct ProjectMemberController;
 #[controller("/api/v1/projects")]
 impl ProjectMemberController {
     /// GET /api/v1/projects/:project_id/members - List all members
+    ///
+    /// Read-only: any project member may view the roster.
     #[get("/:project_id/members")]
-    #[cap(ProjectAdmin)]
+    #[cap(ViewBoard)]
     pub async fn list_members(
         ctx: RequestContext,
         project_member_repo: Arc<ProjectMemberRepository>,

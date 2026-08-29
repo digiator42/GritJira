@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/lib/AppContext";
-import { Avatar } from "./ui";
+import { Dropdown } from "./Dropdown";
 import { ThemeToggle } from "./ThemeToggle";
 import { initials } from "@/lib/format";
 
@@ -142,10 +142,9 @@ const NAV = [
 const SETTINGS = [
   { href: "/settings/general", label: "General" },
   { href: "/settings/issue-types", label: "Issue types" },
-  { href: "/settings/users", label: "Users & Members" },
+  { href: "/settings/users", label: "Users & members" },
   { href: "/settings/workflow", label: "Workflow" },
   { href: "/settings/webhooks", label: "Webhooks" },
-  { href: "/settings/profile", label: "Profile" },
 ];
 
 function SidebarContent({
@@ -155,7 +154,6 @@ function SidebarContent({
   pathname: string;
   onNavigate?: () => void;
 }) {
-  const { me } = useApp();
   const isActive = (href: string) =>
     href === "/board"
       ? pathname === "/board"
@@ -191,35 +189,7 @@ function SidebarContent({
             {item.label}
           </Link>
         ))}
-
-        <p className="mb-1 mt-5 px-2 text-[10px] font-semibold uppercase tracking-widest text-jira-faint">
-          Project settings
-        </p>
-        {SETTINGS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={`rounded-md px-2 py-1.5 text-sm transition ${
-              pathname.startsWith(item.href)
-                ? "bg-jira-blue/20 font-medium text-white"
-                : "text-jira-muted hover:bg-jira-border/40 hover:text-jira-text"
-            }`}
-          >
-            {item.label}
-          </Link>
-        ))}
       </nav>
-
-      {me ? (
-        <div className="mt-4 flex items-center gap-2 border-t border-jira-border px-2 pt-3">
-          <Avatar name={me.username} size={28} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-jira-text">{me.username}</p>
-            <p className="truncate text-[10px] text-jira-faint">{me.role}</p>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }
@@ -253,7 +223,17 @@ export function Sidebar({
 export function Topbar({ onMenu }: { onMenu?: () => void }) {
   const { me, currentProject } = useApp();
   const router = useRouter();
+  const pathname = usePathname();
   const [unread, setUnread] = useState(0);
+
+  const doLogout = async () => {
+    try {
+      await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
+  };
 
   useEffect(() => {
     if (!currentProject) return;
@@ -322,16 +302,47 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
 
       <ThemeToggle />
 
-      <Link
-        href="/settings/general"
-        title="Settings"
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-jira-border text-jira-muted transition hover:border-jira-blue/50 hover:text-jira-text"
+      <Dropdown
+        panelClassName="w-56"
+        trigger={({ open, toggle }) => (
+          <button
+            type="button"
+            title="Settings"
+            aria-expanded={open}
+            onClick={toggle}
+            className={`flex h-8 w-8 items-center justify-center rounded-md border transition ${
+              open
+                ? "border-jira-blue/60 bg-jira-blue/15 text-jira-text"
+                : "border-jira-border text-jira-muted hover:border-jira-blue/50 hover:text-jira-text"
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+        )}
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-        </svg>
-      </Link>
+        <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-jira-faint">
+          Settings
+        </p>
+        {SETTINGS.map((item) => {
+          const active = pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-2 px-3 py-2 text-sm transition ${
+                active
+                  ? "bg-jira-blue/15 font-medium text-white"
+                  : "text-jira-muted hover:bg-jira-border/40 hover:text-jira-text"
+              }`}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </Dropdown>
 
       <Link
         href="/notifications"
@@ -349,24 +360,43 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
         ) : null}
       </Link>
 
-      <div className="flex items-center gap-3">
-        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-jira-blue to-purple-700 text-xs font-semibold text-white">
-          {me ? initials(me.username) : "?"}
-        </span>
+      <Dropdown
+        panelClassName="w-60"
+        trigger={({ open, toggle }) => (
+          <button
+            type="button"
+            title="Account menu"
+            aria-expanded={open}
+            onClick={toggle}
+            className="rounded-full transition hover:ring-2 hover:ring-jira-blue/60"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-jira-blue to-purple-700 text-xs font-semibold text-white">
+              {me ? initials(me.username) : "?"}
+            </span>
+          </button>
+        )}
+      >
+        {me ? (
+          <div className="border-b border-jira-border px-3 py-2">
+            <p className="truncate text-sm font-medium text-jira-text">{me.username}</p>
+            <p className="truncate text-xs text-jira-faint">
+              {me.email} · {me.role}
+            </p>
+          </div>
+        ) : null}
+        <Link
+          href="/settings/profile"
+          className="flex items-center gap-2 px-3 py-2 text-sm text-jira-muted transition hover:bg-jira-border/40 hover:text-jira-text"
+        >
+          Profile
+        </Link>
         <button
-          onClick={async () => {
-            try {
-              await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
-            } finally {
-              router.replace("/login");
-              router.refresh();
-            }
-          }}
-          className="rounded-md px-2 py-1 text-sm text-jira-muted transition hover:text-jira-text"
+          onClick={() => void doLogout()}
+          className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-400 transition hover:bg-red-500/10"
         >
           Log out
         </button>
-      </div>
+      </Dropdown>
     </header>
   );
 }
