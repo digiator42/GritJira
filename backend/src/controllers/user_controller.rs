@@ -67,13 +67,16 @@ impl UserController {
     ) -> Response {
         // Query users using GritRepository's default fetch
         match user_repo.query().fetch().await {
-            Ok(users) => Response::json(
-                HttpStatus::Ok,
-                &ApiResponse {
-                    success: true,
-                    data: users,
-                },
-            ),
+            Ok(users) => {
+                let public_users: Vec<PublicUser> = users.into_iter().map(PublicUser::from).collect();
+                Response::json(
+                    HttpStatus::Ok,
+                    &ApiResponse {
+                        success: true,
+                        data: public_users,
+                    },
+                )
+            }
             Err(e) => Response::internal_error(format!("Failed to fetch users: {}", e)),
         }
     }

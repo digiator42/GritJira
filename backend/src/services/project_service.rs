@@ -30,6 +30,14 @@ impl ProjectService {
             .await
     }
 
+    /// List the projects a user is a member of
+    pub async fn list_projects_for_user(
+        &self,
+        user_id: i32,
+    ) -> Result<Vec<ProjectModel>, sea_orm::DbErr> {
+        self.repo.list_projects_for_user(user_id).await
+    }
+
     /// Get project by ID
     pub async fn get_project_by_id(
         &self,

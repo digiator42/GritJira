@@ -50,11 +50,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const load = useCallback(async () => {
     try {
       const [meData, projectsData, usersData] = await Promise.all([
-        api<{ data: Me }>("/api/v1/auth/me"),
+        api<Me>("/api/v1/auth/me"),
         api<{ data: Project[] }>("/api/v1/projects"),
         api<{ data: User[] }>("/api/v1/users"),
       ]);
-      setMe(meData.data);
+      setMe(meData);
       setProjects(projectsData.data);
       setUsers(usersData.data);
       setError(null);
@@ -69,10 +69,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProjects = useCallback(async () => {
     const [meData, projectsData] = await Promise.all([
-      api<{ data: Me }>("/api/v1/auth/me"),
+      api<Me>("/api/v1/auth/me"),
       api<{ data: Project[] }>("/api/v1/projects"),
     ]);
-    setMe(meData.data);
+    setMe(meData);
     setProjects(projectsData.data);
   }, []);
 

@@ -14,6 +14,23 @@ pub struct ProjectMemberRepository {
 }
 
 impl ProjectMemberRepository {
+    /// Whether `user_id` is a member of `project_id`
+    pub async fn is_member(&self, project_id: i32, user_id: i32) -> Result<bool, sea_orm::DbErr> {
+        use crate::models::project_member::{self, Entity as ProjectMember};
+        use sea_orm::ColumnTrait;
+
+        let members = ProjectMember::find()
+            .filter(
+                project_member::Column::ProjectId
+                    .eq(project_id)
+                    .and(project_member::Column::UserId.eq(user_id)),
+            )
+            .all(&self.db)
+            .await?;
+
+        Ok(!members.is_empty())
+    }
+
     /// Get the user's default project (first project they are a member of)
     pub async fn get_user_default_project(
         &self,
@@ -22,7 +39,11 @@ impl ProjectMemberRepository {
         use crate::models::project_member::{self, Entity as ProjectMember};
         use sea_orm::ColumnTrait;
 
-        let member = ProjectMember::find_by_id(user_id).one(&self.db).await?;
+        let member = ProjectMember::find()
+            .filter(project_member::Column::UserId.eq(user_id))
+            .order_by_asc(project_member::Column::JoinedAt)
+            .one(&self.db)
+            .await?;
 
         Ok(member.map(|m| m.project_id))
     }

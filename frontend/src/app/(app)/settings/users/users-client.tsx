@@ -12,11 +12,13 @@ import { MEMBER_ROLES } from "@/lib/types";
 export function UsersSettingsClient() {
   const { me, currentProject, users } = useApp();
   const projectId = currentProject?.id;
-  const isAdmin = me?.role === "Admin";
 
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const currentMember = members.find((m) => m.user_id === me?.id);
+  const isAdmin = me?.role === "Admin" || currentMember?.role === "Admin";
 
   const load = useCallback(() => {
     if (!projectId) return;
@@ -79,7 +81,7 @@ export function UsersSettingsClient() {
       {error ? <ErrorBox message={error} /> : null}
       {loading && members.length === 0 ? <PageShimmer /> : null}
 
-      {isAdmin ? (
+      {!me ? null : isAdmin ? (
         <AddMember users={unassigned} projectId={projectId} onAdded={load} />
       ) : (
         <div className="panel p-3 text-xs text-jira-faint">

@@ -145,14 +145,21 @@ pub struct ProjectController;
 
 #[controller("/api/v1/projects")]
 impl ProjectController {
-    /// GET /api/v1/projects - List all projects
+    /// GET /api/v1/projects - List the caller's projects
     #[get("")]
     #[cap(ViewBoard)]
     pub async fn list_projects(
         ctx: RequestContext,
         project_service: Arc<ProjectService>,
     ) -> Response {
-        match project_service.list_projects().await {
+        let user_id = ctx.get_session_data("user_id").and_then(|id| id.parse().ok());
+
+        let result = match user_id {
+            Some(uid) => project_service.list_projects_for_user(uid).await,
+            None => project_service.list_projects().await,
+        };
+
+        match result {
             Ok(projects) => Response::json(
                 HttpStatus::Ok,
                 &ApiResponse {

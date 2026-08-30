@@ -112,9 +112,10 @@ impl IssueService {
         actor_id: i32,
         ctx: &RequestContext,
     ) -> Result<issue::Model, DbErr> {
-        // Fetch original step for transition telemetry
-        let from_step_id = self.issue_repo.find_one_by_step_id(issue_id).await?;
-        let step_id = from_step_id.unwrap().id;
+        // Capture the current step for transition telemetry; fall back to 0
+        // for issues not attached to a workflow step (e.g. the backlog).
+        let current = self.get_issue_by_id(issue_id).await?;
+        let from_step_id = current.as_ref().map(|i| i.step_id).unwrap_or(0);
 
         let updated_issue = self
             .issue_repo
@@ -125,7 +126,7 @@ impl IssueService {
         ctx.event_bus.publish(IssueTransitioned {
             issue_id,
             key: updated_issue.key.clone(),
-            from_step_id: step_id,
+            from_step_id,
             to_step_id: target_step_id,
             actor_id,
         });

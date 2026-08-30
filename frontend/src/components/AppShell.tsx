@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
-    api<{ data: Me }>("/api/v1/auth/me")
+    api<Me>("/api/v1/auth/me")
       .then(() => {
         if (!cancelled) setPhase("ok");
       })

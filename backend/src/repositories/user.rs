@@ -1,4 +1,5 @@
 use crate::models::user;
+use crate::security::password;
 use gritshield::GritAdmin;
 use gritshield::GritComponent;
 use gritshield::database::GritRepository;
@@ -10,6 +11,10 @@ use sea_orm::DbErr;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 use std::sync::Arc;
+
+fn hash_pw(plain: &str) -> Result<String, DbErr> {
+    password::hash_password(plain).map_err(DbErr::Custom)
+}
 
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
@@ -31,7 +36,7 @@ impl UserRepository {
         let new_user = user::ActiveModel {
             username: Set(username.to_string()),
             email: Set(email.to_string()),
-            password: Set(password.to_string()),
+            password: Set(hash_pw(password)?),
             role: Set(role.to_string()),
             ..Default::default()
         };
@@ -77,13 +82,36 @@ impl UserRepository {
 
         match existing {
             Some(existing) => {
-                if existing.password != current_password {
+                if !password::verify_password(current_password, &existing.password) {
                     return Ok(Some(false));
                 }
                 let mut active: user::ActiveModel = existing.into();
-                active.password = Set(new_password.to_string());
+                active.password = Set(hash_pw(new_password)?);
                 active.update(&self.db).await?;
                 Ok(Some(true))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// Set a user's password to a fresh hash of `new_password` without
+    /// validating the current one. Used e.g. to upgrade legacy plaintext
+    /// credentials after a successful login.
+    pub async fn set_password(
+        &self,
+        user_id: i32,
+        new_password: &str,
+    ) -> Result<Option<user::Model>, DbErr> {
+        use crate::models::user::Entity as User;
+
+        let existing = User::find_by_id(user_id).one(&self.db).await?;
+
+        match existing {
+            Some(existing) => {
+                let mut active: user::ActiveModel = existing.into();
+                active.password = Set(hash_pw(new_password)?);
+                let updated = active.update(&self.db).await?;
+                Ok(Some(updated))
             }
             None => Ok(None),
         }

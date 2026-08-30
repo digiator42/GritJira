@@ -1,4 +1,5 @@
 use crate::models::{comment, issue, project, sprint, user, workflow};
+use crate::security::password::hash_password;
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, EntityTrait, Set};
 
@@ -17,7 +18,7 @@ pub async fn seed_database(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr
     let admin_user = user::ActiveModel {
         username: Set("admin".to_string()),
         email: Set("admin@gritjira.local".to_string()),
-        password: Set("admin123".to_string()),
+        password: Set(hash_password("admin123").expect("argon2 hashing")),
         role: Set("Admin".to_string()),
         avatar_url: Set(Some(
             "https://api.dicebear.com/7.x/avataaars/svg?seed=admin".to_string(),
@@ -31,7 +32,7 @@ pub async fn seed_database(db: &DatabaseConnection) -> Result<(), sea_orm::DbErr
     let dev_user = user::ActiveModel {
         username: Set("alex_dev".to_string()),
         email: Set("alex@gritjira.local".to_string()),
-        password: Set("alex123".to_string()),
+        password: Set(hash_password("alex123").expect("argon2 hashing")),
         role: Set("Developer".to_string()),
         avatar_url: Set(Some(
             "https://api.dicebear.com/7.x/avataaars/svg?seed=alex".to_string(),

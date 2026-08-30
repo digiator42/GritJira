@@ -3,7 +3,7 @@ use crate::repositories::project_member::ProjectMemberRepository;
 use crate::repositories::user::UserRepository;
 use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
-use gritshield::{GritSanitizer, info};
+use gritshield::{GritSanitizer, error, info};
 use sea_orm::ModelTrait;
 use sea_orm::QueryOrder;
 use serde::{Deserialize, Serialize};
@@ -67,10 +67,25 @@ impl AuthController {
             Err(_) => return Response::internal_error("Database error"),
         };
 
+        if !crate::security::password::verify_password(&payload.password, &user.password) {
+            return Response::unauthorized("Invalid credentials");
+        }
+
         let user_id = user.id;
 
+        // Upgrade legacy plaintext-stored credentials to an Argon2 hash on
+        // successful login so old rows converge on the hashed format.
+        if !crate::security::password::is_hashed(&user.password) {
+            if let Err(e) = user_repo.set_password(user_id, &payload.password).await {
+                error!(
+                    "Failed to upgrade legacy password hash for user {}: {}",
+                    user.email, e
+                );
+            }
+        }
+
         // Get default project from project_members table
-        let default_project_id = match project_member_repo.get_user_default_project(user_id).await {
+        let default_project_id = match project_repo.get_user_default_project(user_id).await {
             Ok(Some(project_id)) => project_id,
             Ok(None) => {
                 // User has no projects - try to get first project
@@ -126,6 +141,8 @@ impl AuthController {
     pub async fn handle_register(
         ctx: RequestContext,
         user_repo: Arc<UserRepository>,
+        project_repo: Arc<ProjectRepository>,
+        project_member_repo: Arc<ProjectMemberRepository>,
     ) -> Response {
         let payload = match ctx.json::<RegisterPayload>().await {
             Ok(p) => p,
@@ -140,6 +157,21 @@ impl AuthController {
             Ok(user) => {
                 ctx.set_session_data("user_id", &user.id.to_string());
                 ctx.set_session_data("role", &user.role);
+
+                // Auto-join the user to the first project so a brand-new
+                // account has a workspace (mirrors the login auto-join).
+                match project_repo.get_first_project().await {
+                    Ok(Some(project_id)) => {
+                        let _ = project_member_repo
+                            .add_user_to_project(project_id, user.id, &user.username, "Member")
+                            .await;
+                        ctx.set_session_data("current_project_id", &project_id.to_string());
+                        if let Ok(Some(key)) = project_repo.get_project_key(project_id).await {
+                            ctx.set_session_data("current_project_key", &key);
+                        }
+                    }
+                    _ => {}
+                }
 
                 Response::json(
                     HttpStatus::Created,

@@ -109,8 +109,8 @@ export default function BoardClient({
         }),
       };
       setBoard(next);
-      void api<Issue>(`/api/v1/board/issues/${issueId}/move`, {
-        method: "POST",
+      void api<Issue>(`/api/v1/issues/${issueId}/step`, {
+        method: "PATCH",
         json: { target_step_id: targetStepId, position: clamped },
       })
         .catch((e) => {
