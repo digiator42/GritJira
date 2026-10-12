@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-gritshield = { path = "../../GritShield", features = [
+gritshield = { version = "0.3.1", features = [
     "postgres",
     "admin",
     "swagger",
