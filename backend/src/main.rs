@@ -31,6 +31,13 @@ pub async fn handle_not_found(ctx: RequestContext) -> Response {
     }))
 }
 
+async fn health(_ctx: RequestContext) -> Response {
+    Response::json_ok(&serde_json::json!({
+        "service": "gritjira-backend",
+        "status": "ok",
+    }))
+}
+
 #[launch]
 async fn main() {
     // Initialize the engine configuration setup matrix
@@ -52,10 +59,12 @@ async fn main() {
                 "/static/**".to_string(),
                 "/api/v1/auth/**".to_string(),
                 "/admin/**".to_string(),
+                "/health".to_string(),
             ],
             None,
         ))
-        .mount_db(shared_db.clone());
+        .mount_db(shared_db.clone())
+        .route(("/health", HttpMethod::GET, health));
 
     let dot_schema = AutoWire::export_dot();
     println!("[DI CONTAINER] Dependency Injection Graph:\n{}", dot_schema);
