@@ -1,0 +1,28 @@
+# GritJira backend on Vercel (container service).
+#
+# Deployed with `vercel deploy --prod` from backend/ (see vercel.json).
+# Runtime config comes from the environment: HOST=0.0.0.0 is baked in,
+# PORT is injected by Vercel, DATABASE_URL must be set to a real Postgres
+# (without it the framework falls back to ephemeral in-memory SQLite).
+FROM rust:1-bookworm AS builder
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /src
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates libssl3 curl \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+# The crate is named `test`; ship it under a meaningful binary name.
+COPY --from=builder /src/target/release/test /usr/local/bin/gritjira-backend
+COPY migrations ./migrations
+COPY static ./static
+ENV HOST=0.0.0.0 \
+    PORT=80
+EXPOSE 80
+CMD ["gritjira-backend"]
