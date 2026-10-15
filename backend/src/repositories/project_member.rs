@@ -6,7 +6,7 @@ use crate::models::UserModel;
 #[derive(Clone, GritAdmin, GritComponent)]
 #[repository(
     entity = "crate::models::project_member",
-    searchable = [ "project_id", "user_id", "username", "role", "joined_at" ],
+    searchable = [ "project_id", "user_id", "username", "role" ],
     read_only = ["joined_at"],
 )]
 pub struct ProjectMemberRepository {
@@ -63,7 +63,7 @@ impl ProjectMemberRepository {
             user_id: Set(user_id),
             username: Set(username.to_string()),
             role: Set(role.to_string()),
-            joined_at: Set(Utc::now().naive_utc()),
+            joined_at: Set(Utc::now().into()),
             ..Default::default()
         };
 

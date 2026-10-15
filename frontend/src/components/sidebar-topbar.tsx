@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/lib/AppContext";
+import { api, apiData, clearToken } from "@/lib/api";
 import { Dropdown } from "./Dropdown";
 import { ThemeToggle } from "./ThemeToggle";
 import { initials } from "@/lib/format";
@@ -228,8 +229,9 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
 
   const doLogout = async () => {
     try {
-      await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
+      await api("/api/v1/auth/logout", { method: "POST" });
     } finally {
+      clearToken();
       router.replace("/login");
       router.refresh();
     }
@@ -239,12 +241,9 @@ export function Topbar({ onMenu }: { onMenu?: () => void }) {
     if (!currentProject) return;
     let cancelled = false;
     const poll = () => {
-      fetch(`/api/v1/notifications/unread?project_id=${currentProject.id}`, {
-        credentials: "include",
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((body) => {
-          if (!cancelled) setUnread(typeof body?.data === "number" ? body.data : 0);
+      apiData<number>(`/api/v1/notifications/unread?project_id=${currentProject.id}`)
+        .then((n) => {
+          if (!cancelled) setUnread(typeof n === "number" ? n : 0);
         })
         .catch(() => {});
     };

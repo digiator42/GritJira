@@ -152,7 +152,7 @@ impl ProjectController {
         ctx: RequestContext,
         project_service: Arc<ProjectService>,
     ) -> Response {
-        let user_id = ctx.get_session_data("user_id").and_then(|id| id.parse().ok());
+        let user_id = ctx.get_user_id().and_then(|id| id.parse().ok());
 
         let result = match user_id {
             Some(uid) => project_service.list_projects_for_user(uid).await,

@@ -45,9 +45,9 @@ impl ProjectMemberController {
 
         // Project rosters are visible to the project's members and to global
         // Admins; other users get 403.
-        let user_id = ctx.get_session_data("user_id").and_then(|id| id.parse().ok());
+        let user_id = ctx.get_user_id().and_then(|id| id.parse().ok());
         let is_admin = ctx
-            .get_session_data("role")
+            .get_user_role()
             .as_deref()
             .is_some_and(|r| r == "Admin");
         let is_member = match user_id {

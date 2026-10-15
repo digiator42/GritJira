@@ -13,19 +13,40 @@ type RequestOptions = Omit<RequestInit, "body"> & {
   json?: unknown;
 };
 
+const TOKEN_KEY = "grit.authToken";
+
+export function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function clearToken(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(TOKEN_KEY);
+}
+
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { json, headers, ...rest } = options;
 
+  const token = getToken();
   const url = path.startsWith("/api") ? path : `/api${path}`;
   const res = await fetch(url, {
     credentials: "include",
     ...rest,
     headers: {
       ...(json !== undefined ? { "Content-Type": "application/json" } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: json !== undefined ? JSON.stringify(json) : undefined,
   });
+
+  if (res.status === 401) clearToken();
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;

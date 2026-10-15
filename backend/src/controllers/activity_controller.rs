@@ -54,7 +54,7 @@ impl NotificationController {
     ) -> Response {
         let project_id = get_project_context(&ctx);
         let user_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -85,7 +85,7 @@ impl NotificationController {
     ) -> Response {
         let project_id = get_project_context(&ctx);
         let user_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -110,7 +110,7 @@ impl NotificationController {
     ) -> Response {
         let project_id = get_project_context(&ctx);
         let user_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 

@@ -12,7 +12,7 @@ pub struct Model {
     pub user_id: i32,
     pub username: String,
     pub role: String, // "Admin", "Member", "Viewer"
-    pub joined_at: DateTime,
+    pub joined_at: DateTimeWithTimeZone,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation, GritRelation)]

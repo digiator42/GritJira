@@ -3,6 +3,7 @@ use crate::repositories::project_member::ProjectMemberRepository;
 use crate::repositories::user::UserRepository;
 use gritshield::http::response::HttpStatus;
 use gritshield::prelude::*;
+use gritshield::security::jwt::{Claims, JwtHandler};
 use gritshield::{GritSanitizer, error, info};
 use sea_orm::ModelTrait;
 use sea_orm::QueryOrder;
@@ -31,6 +32,34 @@ pub struct AuthResponse {
     pub message: String,
     pub user_id: Option<i32>,
     pub role: Option<String>,
+    pub token: Option<String>,
+    pub token_type: Option<String>,
+    pub expires_in: Option<u64>,
+}
+
+/// Access-token lifetime, in seconds (12 hours).
+pub const TOKEN_TTL_SECS: u64 = 12 * 60 * 60;
+
+/// Resolve the HMAC signing secret. `GRITJIRA_JWT_SECRET` must be set in
+/// production so every instance verifies the same tokens; the fallback is
+/// development-only.
+pub fn jwt_secret() -> String {
+    std::env::var("GRITJIRA_JWT_SECRET")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| {
+            eprintln!(
+                "[AUTH] WARNING: GRITJIRA_JWT_SECRET is unset; using an insecure development secret."
+            );
+            "gritjira-insecure-development-secret-change-me".to_string()
+        })
+}
+
+/// Mint a signed stateless access token for an authenticated user.
+pub fn mint_token(user_id: i32, role: &str) -> Result<(String, u64), String> {
+    let claims = Claims::new(user_id.to_string(), role.to_string(), TOKEN_TTL_SECS);
+    let token = JwtHandler::new(&jwt_secret()).sign(&claims)?;
+    Ok((token, claims.exp as u64))
 }
 
 #[derive(Serialize)]
@@ -110,12 +139,12 @@ impl AuthController {
             Err(_) => "DEFAULT".to_string(),
         };
 
-        // Set session context
-        ctx.set_session_data("user_id", &user_id.to_string());
-        ctx.set_session_data("role", &user.role);
-        ctx.set_session_data("current_project_id", &default_project_id.to_string());
-        ctx.set_session_data("current_project_key", &project_key);
-        ctx.set_session_data("default_project_id", &default_project_id.to_string());
+        // Stateless auth: mint a signed JWT. The session store is per-process
+        // memory, so it cannot survive across serverless instances.
+        let (token, expires_at) = match mint_token(user_id, &user.role) {
+            Ok(t) => t,
+            Err(e) => return Response::internal_error(format!("Failed to sign token: {}", e)),
+        };
 
         info!(
             "User {} logged in with default project {} ({})",
@@ -129,6 +158,9 @@ impl AuthController {
                 message: "Login successful".into(),
                 user_id: Some(user_id),
                 role: Some(user.role.clone()),
+                token: Some(token),
+                token_type: Some("Bearer".to_string()),
+                expires_in: Some(expires_at),
             },
         )
         .with_header(
@@ -155,9 +187,6 @@ impl AuthController {
             .await
         {
             Ok(user) => {
-                ctx.set_session_data("user_id", &user.id.to_string());
-                ctx.set_session_data("role", &user.role);
-
                 // Auto-join the user to the first project so a brand-new
                 // account has a workspace (mirrors the login auto-join).
                 match project_repo.get_first_project().await {
@@ -165,13 +194,16 @@ impl AuthController {
                         let _ = project_member_repo
                             .add_user_to_project(project_id, user.id, &user.username, "Member")
                             .await;
-                        ctx.set_session_data("current_project_id", &project_id.to_string());
-                        if let Ok(Some(key)) = project_repo.get_project_key(project_id).await {
-                            ctx.set_session_data("current_project_key", &key);
-                        }
                     }
                     _ => {}
                 }
+
+                let (token, expires_at) = match mint_token(user.id, &user.role) {
+                    Ok(t) => t,
+                    Err(e) => {
+                        return Response::internal_error(format!("Failed to sign token: {}", e))
+                    }
+                };
 
                 Response::json(
                     HttpStatus::Created,
@@ -180,6 +212,9 @@ impl AuthController {
                         message: "Registration successful".into(),
                         user_id: Some(user.id),
                         role: Some(user.role),
+                        token: Some(token),
+                        token_type: Some("Bearer".to_string()),
+                        expires_in: Some(expires_at),
                     },
                 )
             }
@@ -193,14 +228,15 @@ impl AuthController {
         }
     }
 
-    /// GET /api/v1/auth/me - Resolve the authenticated user from the session.
-    /// 401 JSON when no session exists.
+    /// GET /api/v1/auth/me - Resolve the authenticated user from the JWT
+    /// claims (falls back to session). 401 JSON when anonymous.
     #[get("/me")]
-    pub async fn me(ctx: RequestContext, user_repo: Arc<UserRepository>) -> Response {
-        let user_id: i32 = match ctx
-            .get_session_data("user_id")
-            .and_then(|id| id.parse().ok())
-        {
+    pub async fn me(
+        ctx: RequestContext,
+        user_repo: Arc<UserRepository>,
+        project_repo: Arc<ProjectRepository>,
+    ) -> Response {
+        let user_id: i32 = match ctx.get_user_id().and_then(|id| id.parse().ok()) {
             Some(id) => id,
             None => return Response::json_unauthorized_msg("Not authenticated"),
         };
@@ -208,6 +244,15 @@ impl AuthController {
         match user_repo.find_one_by_id(user_id).await {
             Ok(Some(user)) => {
                 let user = user.core;
+                // Project context is no longer sticky in a session; resolve the
+                // caller's default project from the DB.
+                let current_project_id = match project_repo
+                    .get_user_default_project(user.id)
+                    .await
+                {
+                    Ok(Some(pid)) => Some(pid),
+                    _ => project_repo.get_first_project().await.ok().flatten(),
+                };
                 Response::json(
                     HttpStatus::Ok,
                     &MeResponse {
@@ -216,10 +261,15 @@ impl AuthController {
                         email: user.email,
                         role: user.role,
                         avatar_url: user.avatar_url,
-                        current_project_id: ctx
-                            .get_session_data("current_project_id")
-                            .and_then(|s| s.parse().ok()),
-                        current_project_key: ctx.get_session_data("current_project_key"),
+                        current_project_id,
+                        current_project_key: match current_project_id {
+                            Some(pid) => project_repo
+                                .get_project_key(pid)
+                                .await
+                                .ok()
+                                .flatten(),
+                            None => None,
+                        },
                     },
                 )
             }
@@ -228,18 +278,9 @@ impl AuthController {
         }
     }
 
-    /// POST /api/v1/auth/logout - Destroy the active session.
+    /// POST /api/v1/auth/logout - Stateless JWT: the client discards the token.
     #[post("/logout")]
-    pub async fn logout(ctx: RequestContext) -> Response {
-        if let Some(session) = &ctx.session {
-            if let Ok(mut session) = session.lock() {
-                session.data.clear();
-                session.user_id = None;
-            }
-        }
-
-        ctx.remove_cookie("GSESSION_ID");
-
+    pub async fn logout(_ctx: RequestContext) -> Response {
         Response::json(
             HttpStatus::Ok,
             &serde_json::json!({

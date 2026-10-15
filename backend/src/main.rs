@@ -2,6 +2,7 @@ use gritshield::core::AutoWire;
 use gritshield::core::shield::GritShield;
 use gritshield::database::{DbConfig, DbManager};
 use gritshield::middleware::AuthMiddleware;
+use gritshield::security::jwt::JwtHandler;
 use gritshield::{catch, inject, prelude::*};
 use sea_orm::DatabaseConnection;
 use security::caps::*;
@@ -54,10 +55,13 @@ async fn main() {
     }
 
     let router = Router::new()
-        .add_middleware(AuthMiddleware::new_session(
+        .add_middleware(AuthMiddleware::new_jwt(
+            JwtHandler::new(&controllers::auth_controller::jwt_secret()),
             vec![
                 "/static/**".to_string(),
-                "/api/v1/auth/**".to_string(),
+                "/api/v1/auth/login".to_string(),
+                "/api/v1/auth/register".to_string(),
+                "/api/v1/auth/logout".to_string(),
                 "/admin/**".to_string(),
                 "/health".to_string(),
             ],

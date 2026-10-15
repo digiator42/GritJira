@@ -89,7 +89,7 @@ impl UserController {
         user_repo: Arc<UserRepository>,
     ) -> Response {
         let user_id: i32 = match ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
         {
             Some(id) => id,
@@ -135,7 +135,7 @@ impl UserController {
         user_repo: Arc<UserRepository>,
     ) -> Response {
         let user_id: i32 = match ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
         {
             Some(id) => id,

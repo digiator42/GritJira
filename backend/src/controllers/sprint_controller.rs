@@ -94,7 +94,7 @@ impl SprintController {
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -138,7 +138,7 @@ impl SprintController {
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 

@@ -145,7 +145,7 @@ impl IssueController {
         }
 
         let uploader_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -206,7 +206,7 @@ storage_key.clone(),
         };
 
         let reporter_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -296,7 +296,7 @@ storage_key.clone(),
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -355,7 +355,7 @@ storage_key.clone(),
         };
 
         let author_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -450,7 +450,7 @@ storage_key.clone(),
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -521,7 +521,7 @@ storage_key.clone(),
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -566,7 +566,7 @@ storage_key.clone(),
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 
@@ -619,7 +619,7 @@ storage_key.clone(),
         };
 
         let actor_id = ctx
-            .get_session_data("user_id")
+            .get_user_id()
             .and_then(|id| id.parse().ok())
             .unwrap_or(1);
 

@@ -139,7 +139,7 @@ impl ProjectRepository {
             project_id: Set(project.id),
             user_id: Set(1), // You need to pass the user_id
             role: Set("Admin".to_string()),
-            joined_at: Set(Utc::now().naive_utc()),
+            joined_at: Set(Utc::now().into()),
             ..Default::default()
         };
         member.insert(&self.db).await?;

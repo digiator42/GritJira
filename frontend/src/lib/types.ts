@@ -204,6 +204,9 @@ export interface AuthResponse {
   message: string;
   user_id: number | null;
   role: string | null;
+  token?: string;
+  token_type?: string;
+  expires_in?: number;
 }
 
 export type Priority =

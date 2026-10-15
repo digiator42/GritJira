@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, setToken } from "@/lib/api";
 import type { AuthResponse } from "@/lib/types";
 
 export default function LoginPage() {
@@ -21,6 +21,8 @@ export default function LoginPage() {
       await api<AuthResponse>("/api/v1/auth/login", {
         method: "POST",
         json: { email, password },
+      }).then((res) => {
+        if (res.token) setToken(res.token);
       });
       router.replace("/board");
       router.refresh();
