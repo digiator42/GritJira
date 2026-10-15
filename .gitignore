@@ -23,7 +23,8 @@ rustc-ice-*.txt
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-/backend/Cargo.lock
+# NOTE: backend/Cargo.lock is intentionally COMMITTED — the Vercel container
+# build needs it (Dockerfile.vercel COPYs it) and it pins reproducible deps.
 
 # Uploaded attachment blobs
 /backend/data/
