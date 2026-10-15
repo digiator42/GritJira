@@ -9,6 +9,3 @@ CREATE TABLE IF NOT EXISTS issue_types (
     CONSTRAINT fk_issue_types_project FOREIGN KEY (project_id)
         REFERENCES projects(id) ON DELETE CASCADE
 );
-
-CREATE INDEX idx_issue_types_project_id ON issue_types (project_id);
-CREATE UNIQUE INDEX idx_issue_types_project_name ON issue_types (project_id, name);

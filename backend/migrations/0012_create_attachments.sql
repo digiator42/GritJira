@@ -13,5 +13,3 @@ CREATE TABLE IF NOT EXISTS attachments (
     CONSTRAINT fk_attachments_uploader FOREIGN KEY (uploader_id)
         REFERENCES users(id)
 );
-
-CREATE INDEX idx_attachments_issue_id ON attachments (issue_id);
